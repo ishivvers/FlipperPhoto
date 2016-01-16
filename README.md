@@ -13,6 +13,11 @@ The UCB Filippenko Group's Photometry Pipeline
  - Update our methods of checking new images for new transients ("kait checking"),
    incorporating new techniques where necessary (i.e. [this paper](http://adsabs.harvard.edu/cgi-bin/nph-data_query?bibcode=2016arXiv160102655Z&db_key=PRE&link_type=ABSTRACT&high=5370fb403432352))
 
+Let's all use [anaconda](https://www.continuum.io/downloads) python for this project (it is a big installation, but includes most of the packages we'll need).  A group version is already installed at ``/home/anaconda``.  To use it, put the following in your ``.bashrc`` file or run it by hand:
+
+    export PATH="/home/anaconda/bin:$PATH"
+
+
 
 ## Our starting point:
 
@@ -59,6 +64,6 @@ These files have been flatfield-corrected, bias-corrected, and trimmed, but the 
     - targetName from the file header
     - YYYYMMDD.dd is observation date with decimal days
     - include a c to mark this file as a fully calibrated image
-  - Ready to begin once above are done.
+  - Ready to begin once above steps are done.
  - to be continued...
 
