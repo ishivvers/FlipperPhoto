@@ -36,10 +36,10 @@ All fits files in those folders have been flatfield-corrected and bias corrected
 
 ### Nickel:
 
-The Nickel images are stored here: ``/media/raid0/Data/nickel/nickelYYMMDD/data/tfn\*.fit``
+The Nickel images are stored here: ``/media/raid0/Data/nickel/nickelYYMMDD/data/tfn*.fit``
 The filenames here start with tfn (Trimmed, Flatfielded, Nickel images), then include the date as YYMMDD, then the original filename of the raw image, then the object name (from the fits header), and finally the passband through which it was observed.
 
-These files have been flatfield-corrected, bias-corrected, and trimmed, but the other files in the same folder (i.e., n*.fit) are the un-corrected versions.  We will use the tfn*.fit files.
+These files have been flatfield-corrected, bias-corrected, and trimmed, but the other files in the same folder (i.e., ``n*.fit``) are the un-corrected versions.  We will use the ``tfn*.fit`` files.
 
 
 ## Current status and to-do:
