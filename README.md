@@ -58,11 +58,11 @@ These files have been flatfield-corrected, bias-corrected, and trimmed, but the 
   - there is an installation of this code at ``/home/kait/software_instealled/astrometry/bin``, I will install it system-wide soon
   - Ready to begin
  - After the WCS information is added to the image header, move the file to ``/media/raid0/Data/reduced_images/TELESCOPE/YYYYMMDD/*``, and rename the file to the following convention:
-   - targetName_YYYYMMDD.dd_k-or-n_filter_c.fit
+   - targetName_YYYYMMDD.dddd_k-or-n_filter_c.fit
     - use k or n to demarcate KAIT or Nickel
     - filter should be one of B,V,R,I, or clear
     - targetName from the file header
-    - YYYYMMDD.dd is observation date with decimal days
+    - YYYYMMDD.dddd is observation date with decimal days (out to 4 decimal points)
     - include a c to mark this file as a fully calibrated image
   - Ready to begin once above steps are done.
  - to be continued...
