@@ -1,0 +1,23 @@
+#!/bin/sh
+
+snlogpath=/my/sntype/
+
+if [ $# -ne 1 ]
+then
+        echo "Usage:$0 snname"
+        exit 0
+fi
+
+#if [ ! -e "default_config" ]
+#then
+#	echo "default_config not found, copy $SEXPATH/default_config to here"
+#	cp $SEXPATH/default_config .
+#fi
+
+snname=`echo $1 | sed s/^sn// | sed s/^SN// | sed s/^Sn// | sed s/^sN// `
+#echo $snname
+
+type=`grep -ihw $snname $snlogpath/sntype_*.txt | cut -c109-115`
+info=`grep -ihw $snname $snlogpath/sntype_*.txt | cut -c1-79`
+
+echo $1 "  "$type  "   "$info

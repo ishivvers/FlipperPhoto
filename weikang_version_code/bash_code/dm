@@ -1,0 +1,16 @@
+#!/bin/sh
+
+if [ $# -le 0 ]
+then
+  echo 'cmd LD Mag'
+  echo 'lumonisty distance in Mpc'
+  exit 0
+fi
+dm=`echo $1 | awk '{print -2.5*log(($1*1e6/10.0)^2)/log(10.0)}'`
+amag=`echo $dm $2 | awk '{print $1+$2}'`
+if [ $# -eq 1 ]
+then
+  echo $dm
+  exit 0
+fi
+echo $dm $amag

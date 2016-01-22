@@ -1,0 +1,417 @@
+PRO realtime_match,mt,sts,target=target,bdir=bdir,multiple=multiple,docrop=docrop,maglim=maglim,newroot=newroot, conf=conf, fast=fast
+;+
+; FUNCTION: REALTIME_MATCH
+;
+; SYNTAX: realtime_match, mt, sts, target=target, bdir=bdir, multiple=multiple,
+;                         docrop=docrop, maglim=maglim
+;
+; INPUTS: mt: the match structure created in real time for burst response
+;         sts: the header structure of said match structure
+;
+; OPTIONAL: target: the ra, dec, and error for the burst
+;           bdir: the directory where binary files are to be written
+;           multiple: the number of images to check for transients
+;           docrop: do the cropped jpegs
+;      ***     maglim: (minimum) average mag -- change to peak?
+;           maglim: (minimum) peak magnitude
+;           conf: structure needed for get_1stim_time
+;           fast: fast finder!
+;
+;           If bdir is not defined, no binary files or cropped jpegs will be written.
+;           If target is not defined, the information will be pulled from sts
+;
+; PURPOSE: this function creates a binary file for non-usno objects
+;          near the burst location, as well as cropped jpegs for each 
+;          such source in each image
+; 
+; REVISION HISTORY:
+;     Created:   Don Smith   UM    08/15/02
+;     Modified:  Eli Rykoff  UM    01/16/04
+;                Eli Rykoff        02/23/04 -- works with new/old match strs
+;                Sarah Yost  UM    02/11/05 adding first_time into
+;                                           binary file, cleaning up
+;                                           so that it does the html
+;                                           pages on the ??0, not
+;                                           every 10th added to the
+;                                           match structure.
+;                Sarah Yost        03/15/05 rough field star coverage
+;                                           matchfieldcov, affects write_binary
+;                Eli Rykoff  UM    05/09/05 changed to peak magnitude
+;                Eli Rykoff  UM    12/08/05 added /fast finder
+; ===================================================================
+;-
+
+if n_params() eq 0 then begin
+    print,'syntax- realtime_match,mt,sts,target=target,bdir=bdir,multiple=multiple,docrop=docrop,newroot=newroot'
+    return
+endif
+
+
+if n_elements(multiple) eq 0 then begin
+    ; If there aren't a multiple of ten images in the structure, do nothing
+    n = 10
+endif else n = multiple
+
+if keyword_set(fast) then begin
+    n = mt.nobs  ;; run it on all of them
+    if n_elements(maglim) eq 0 then maglim = 16.0
+    print,'Running in fast mode'
+endif
+
+;; moved this below to change with error box -- not yet.
+if n_elements(maglim) eq 0 then maglim = 17.5
+
+;; AUTO-DETECTION BIT
+;; only run on 2 or 10 frames; only run on "gsb" or "gsq" for now
+if (mt.nobs eq 2 or mt.nobs eq 10) then begin
+    if (strpos(mt.imagename[0],'gsb') gt 0) or (strpos(mt.imagename[0],'gsq') gt 0) then begin
+        realtime_auto_counterpart,mt,sts
+    endif
+endif
+
+
+
+; Define some useful constants
+rad = 30./60.
+
+f = 1.5
+IF keyword_set(target) THEN BEGIN 
+    IF n_elements(target) EQ 4 THEN f = target[3]
+ENDIF 
+
+npx = 20
+if tag_exist(mt,'nobs') then begin
+    allobs = lindgen(mt.nobs)
+    allobj = lindgen(mt.nobj)
+    nobs = mt.nobs
+    nobj = mt.nobj
+endif else begin
+    allobs = lindgen(n_elements(mt.jd))
+    allobj = lindgen(n_elements(mt.ra))
+    nobs = n_elements(mt.jd)
+    nobj = n_elements(mt.ra)
+endelse
+
+tmp = where(mt.jd EQ max(mt.jd)) & itmp = mt.imagename[tmp[n_elements(tmp)-1]]
+
+dirparts=strsplit(itmp,'/',/extract)
+parts=strsplit(dirparts[n_elements(dirparts)-1],'_',/extract)
+ptmp=parts[2]
+
+;; The third part has 3X???, where [X] is abcd, ? = digit
+
+nframe = fix(strmid(ptmp,2,3))
+
+
+
+IF (nframe MOD n EQ 0) THEN BEGIN 
+
+    tmperror=-1 
+
+    ;; the response delay is calculated in write_binary, from the first
+    ;; calibrated image
+
+    mingood=5
+    if keyword_set(fast) then mingood = 2
+
+    fieldcovfrac = matchfieldcov(mt, sts, mingood, fail=fail, nsig=1.0)
+    if (fail) then fieldcovfrac = -1.0
+
+    save_pos = !p.position
+    save_multi = !p.multi
+    if keyword_set(fast) then begin
+        seq = 0
+    endif else begin
+        seq = floor((nobs-1)/n) + 1
+    endelse
+    parts = str_sep(mt.imagename[0],'_')
+    tlaroot = parts[1]+'_'+strmid(parts[2],0,2)
+    if n_elements(newroot) ne 0 then tlaroot=newroot+'_'+strmid(parts[2],0,2)
+    IF keyword_set(bdir) THEN BEGIN 
+        binfname = bdir+'/'+tlaroot+string(seq,format="(i2.2)")+'.bin'
+        circjpg = bdir+'/'+tlaroot+string(seq,format="(i2.2)")+'_img.jpg'
+    ENDIF  
+
+; First, determine which sources are close enough to the GRB to be of interest
+
+    dz = mt.decc[0]
+    rz = mt.rac[0]
+    er = 0.05 ;; minimum error
+;;    IF keyword_set(target) THEN BEGIN 
+    if n_elements(target) ge 3 then begin
+        rz = target[0]
+        dz = target[1]
+        er = target[2]
+    ENDIF ELSE BEGIN 
+        IF (tag_exist(sts, 'trig_ra')) THEN BEGIN 
+            IF sts[0].trig_ra NE 0.0 THEN rz = sts[0].trig_ra
+            IF sts[0].trig_dec NE 0.0 THEN dz = sts[0].trig_dec
+            IF sts[0].trig_err GT er THEN er = sts[0].trig_err
+        ENDIF 
+    ENDELSE 
+    IF er LT 0.05 THEN er = 0.05
+    IF er GT 1.0 THEN er = 1.0
+    
+;;    if n_elements(maglim) eq 0 then begin
+        ;; deeper cut for better localizations (eg, Swift)
+;;        if (er lt 0.2) then maglim=18.0 else maglim=17.5
+;;    endif
+
+
+    gcirc, 1, mt.ra/15., mt.dec, rz/15., dz, sp
+  ;;  close = where(sp LT 3600.*f*er AND mt.ngood GE 5 and $
+  ;;                mt.mavg lt maglim, ncand)
+    
+    ;; need the peak magnitudes for the good prospects
+    allclose=where(sp lt 3600.*f*er and mt.ngood[allobj] ge mingood,ncand)
+    if (ncand gt 0) then begin
+        pkmags=fltarr(nobj)+100.0
+        for i=0l,ncand-1 do begin
+            okobs=where((mt.m[allobs,allclose[i]] gt 0) and $
+                        (mt.flags[allobs,allclose[i]] lt 4),nok)
+            if (nok gt 0) then $
+              pkmags[allclose[i]] = min(mt.m[allobs[okobs],allclose[i]])
+        endfor
+
+        close=where(pkmags lt maglim,ncand)
+        
+    endif
+    
+;;    close=where(sp lt 3600.*f*er and mt.ngood[allobj] ge 5 and $
+;;                mt.mavg[allobj] lt maglim, ncand)
+    if (ncand gt 0) then begin
+
+; Now, read in the full USNO catalog and match to source coords
+        usnoread2, rz, dz, 1.1*f*er/cos(!dpi*dz/180.), ucat
+        sigma = min(sts[where(sts.pos_sigma ne 0.0)].pos_sigma) * 0.0009d * 3600.
+
+        usno_missing,mt.ra[close],mt.dec[close],ucat,not_usno,miss_dist, $
+                     sigma=sigma,m1=m1,m2=m2,d_cut=d_cut
+        if (not_usno[0] eq -1) then notcount = 0 else notcount = n_elements(not_usno)
+
+
+ ; Save the RMAG values for the matches
+        rmag = mt.ra[allobj] * 0.0
+        in_usno = mt.ra[allobj] * 0
+        xf = in_usno
+        usno_dist = mt.ra[allobj] * 0.0
+        IF n_elements(m1) GT 0 THEN BEGIN 
+            rmag[close[m1]] = ucat[m2].rmag
+            in_usno[close[m1]] = 1
+            IF not_usno[0] GT -1 THEN BEGIN 
+                in_usno[close[not_usno]] = 0
+                usno_dist[close[not_usno]] = miss_dist
+            ENDIF 
+        ENDIF
+
+        ;; and there's a 3 pixel minimum...
+
+        IF d_cut LT 9.72 THEN d_cut = 9.72
+        uix = where(usno_dist[close] GE d_cut, nux)
+
+;; Set the cut for how far to allow things without letting more than ten through
+;; We don't need to cut on non-usno sources any more.
+;        far = where(usno_dist GE d_cut, nfar)
+;        IF nfar GT 10 THEN BEGIN 
+;            sofar = sort(usno_dist)
+;            d_cut = usno_dist[sofar[n_elements(usno_dist)-10]]
+;        ENDIF 
+
+
+
+; Don't use the bad images
+        qscore_cut = 1.5
+        qscores = fltarr(nobs)
+        
+        for i=0l,nobs-1 do begin
+            ;; note: not really used
+            qscores[i] = qualscore(sts[i])
+        endfor
+
+        if not keyword_set(fast) then begin
+            ;; normal, not fast, calculate variable ones...
+            good_images = where(qscores lt qscore_cut, good_count)
+            if (good_count lt 3) then begin
+                vvals = fltarr(n_elements(close))
+            endif else begin
+                calc_vscores,mt,close,good_images,vvals
+            endelse
+
+            ;; Now, determine which of the sources in "close" are variable
+            choose_vscores,vvals,var,v_cut=v_cut
+        
+     
+            ;; v_cut = 5.0
+            sovv = sort(vvals)
+            mxv = n_elements(sovv)
+            if (mxv lt 11) then sub=mxv else sub = 11
+            IF vvals[sovv[mxv-sub]] GE v_cut THEN v_cut = vvals[sovv[mxv-sub]]
+            vix = where(vvals GE v_cut,nvx)
+        endif else begin
+            ;; fast variable calculation
+            ;; "all" the non-usno object(s) count as variable...
+            ;; (this should be 0 or 1)
+            vix = uix
+            vvals = fltarr(n_elements(close))
+            ;; so it doesn't look very variable!
+            if (uix[0] ne -1) then vvals[vix] = 0.1
+            v_cut = 0.05
+            vix=where(vvals ge v_cut,nvx)
+        endelse
+
+        final = where(vvals GE v_cut OR usno_dist[close] GE d_cut, ncand2)
+
+        var_flag = mt.ra * 0
+        IF (nvx GT 0) THEN var_flag[close[vix]] = 1
+        nov = where(vvals LE 0, nnv)
+        IF (nnv GT 0) THEN var_flag[close[nov]] = -2
+
+; Before cropping individual jpegs, make a large jpeg of the burst
+; Error box, marking sources of interest
+        IF keyword_set(bdir) THEN BEGIN 
+;;            ra1 = [-180.] 
+;;            dec1 =[-200.]
+;;            ra2 = [-180.]
+;;            dec2 =[-200.]
+            IF nvx GT 0 THEN BEGIN 
+                ra1 = mt.ra[close[vix]]
+                dec1 = mt.dec[close[vix]]
+                print, 'VARIABLE ', nvx, ' OBJECTS AT ', ra1, dec1
+            ENDIF else begin
+                print,'NO Variable Objects'
+            endelse
+            IF nux GT 0 THEN BEGIN 
+                ra2 = mt.ra[close[uix]] 
+                dec2 = mt.dec[close[uix]]
+                print, 'NON USNO ', nux, ' OBJECTS AT ', ra2, dec2
+            ENDIF else begin
+                print,'NO non-USNO Objects'
+            endelse
+            cd,conf.workdir,current=cwd
+            make_full_jpeg, mt, sts, f, rz, dz, er, ra1, dec1, ra2, dec2, circjpg, fast=fast,n=n
+            cd,cwd
+        ENDIF 
+
+; Now start looking at individual sources
+;        
+        IF ncand2 GT 0 THEN BEGIN 
+; Crop our lists to just the odd sources we're interested in
+            odd = close[final] 
+            vso = -1
+            IF nvx GT 0 THEN vso = close[vix]
+            usno_dist = usno_dist[odd]
+            var_flag = var_flag[odd]
+            rmag = rmag[odd]
+            vvals = vvals[final]
+
+; Third, loop through the images and crop out the area around
+;   each source, then write each cropped image to a jpeg file
+            IF keyword_set(docrop) AND keyword_set(bdir) AND nvx GT 0 THEN BEGIN 
+                vso = close[vix]
+                cropflag = intarr(nobs,nvx) * 0
+                sets = nobs/n
+                FOR zr=0,sets-1 DO BEGIN
+                    zix = indgen(n) + n*zr
+                    FOR zso=0,nvx-1 DO BEGIN  
+                        him = max(mt.m[zix,vso[zso]],hix)
+                        IF check_flags3('CROPJPG',mt.rflags[zix[hix],vso[zso]],type='RFLAGS') EQ 0 THEN $
+                          cropflag[zix[hix],zso] = 1
+                        lom = min(mt.m[zix,vso[zso]],lox)
+                        IF check_flags3('CROPJPG',mt.rflags[zix[lox],vso[zso]],type='RFLAGS') EQ 0 THEN $
+                          cropflag[zix[lox],zso] = 1
+                        mmm = mt.m[zix,vso[zso]] - median(mt.m[zix,vso[zso]])
+                        mmm = mmm * mmm
+                        lom = min(mmm, lox)
+                        IF check_flags3('CROPJPG',mt.rflags[zix[lox],vso[zso]],type='RFLAGS') EQ 0 THEN $
+                          cropflag[zix[lox],zso] = 1
+                    ENDFOR 
+                ENDFOR
+
+                FOR i=0,nobs-1 DO BEGIN 
+; First we need to determine if there are any sources that haven't
+;    been cropped out yet
+                    proceed = 0
+                    j = 0
+                    WHILE j LT nvx AND proceed EQ 0 DO BEGIN 
+                        IF cropflag[i,j] EQ 1 THEN proceed = 1
+                        j = j + 1
+                    ENDWHILE 
+                        
+                    IF proceed EQ 1 THEN BEGIN 
+                        ;;nm  = str_sep(mt.imagename[i],'.fi')
+                        ;;newname = nm[0]+'_c.fit'
+                        ;;tnm = findfile(idir+'/'+newname)
+                        newname = find_rotse3_image(mt.imagename[i],fail=fail)
+;;                        IF (size(tnm))[0] GT 0 THEN BEGIN 
+                        if (fail eq 0) then begin
+                          ;;  img = readfits(idir+'/'+newname,head)
+                            img = readfits(newname,head)
+                            ixmx = sts[i].naxis1-1
+                            iymx = sts[i].naxis2-1
+; convert the ra/dec values for "odd" sources into x/y values
+                            astr_struct_new,1.85,astr
+                            kx=reform(sts[i].kx)
+                            ky=reform(sts[i].ky)
+                            astr.crval=[double(mt.rac[i]),double(mt.decc[i])]
+                            rd2xy,mt.ra[vso],mt.dec[vso],astr,xn,yn
+                            kmap,xn,yn,tx,ty,kx,ky
+                                
+; Now go through and crop out the areas around each source
+;  plot the cropped area as a jpg with the following file name
+;   tlaroot_3?_s[odd[j]]_i[i].jpg
+                            FOR j=0,nvx-1 DO BEGIN
+                                IF cropflag[i,j] EQ 1 THEN BEGIN 
+                                    truncfile = tlaroot+'_s'
+                                    truncfile = truncfile+string(vso[j],format="(i5.5)")+'_i'
+                                    truncfile = truncfile+string(i,format="(i3.3)")+'.jpg'
+                                    filename = bdir + '/' + truncfile
+                                    mt.rflags[i,vso[j]] = set_flags3('CROPJPG',type='RFLAGS', old=mt.rflags[i,vso[j]])
+                                    xmin = floor(tx[j] - npx)+1
+                                    IF xmin LE 0 THEN xmin = 1
+                                    ymin = floor(ty[j] - npx)+1
+                                    IF ymin LE 0 THEN ymin = 1
+                                    xmax = floor(tx[j] + npx)
+                                    IF xmax GE ixmx THEN xmax = ixmx
+                                    ymax = floor(ty[j] + npx)
+                                    IF ymax GE iymx THEN ymax = iymx
+                                    
+                                    zimg = float(img[xmin:xmax,ymin:ymax])
+                                    set_plot, 'z'
+                                    !p.multi = 0
+                                    device, set_resolution=[200,200]
+                                    !p.position = [0,0,199,199]
+                                    sky,zimg,mean,sigma,/silent
+                                    rlow = mean-sigma
+                                    rhigh = mean+5*sigma
+                                    tvim2,zimg,/noframe,range=[rlow,rhigh]
+                                    print, 'Writing jpeg ', filename
+                                    xyouts,0.5,0.95,truncfile,charsize=0.8,alignment=0.5,/norm
+                                    write_jpeg, filename, tvrd()
+; Plot this image to the file name
+                                ENDIF
+                            ENDFOR 
+; Write an extra, bogus image at the end to indicate that we are done
+                            filename = bdir + '/' + tlaroot + '_f.jpg'
+                            write_jpeg, filename, tvrd()
+                        ENDIF 
+                    ENDIF 
+                ENDFOR 
+            ENDIF 
+        ENDIF
+    ENDIF else begin
+        ;; no candidates
+        print,'No candidates, or any stars whatsoever!'        
+        cd,conf.workdir,current=cwd
+        make_full_jpeg,mt,sts,f,rz,dz,er,rajunk,decjunk,rajunk,decjunk,circjpg,fast=fast
+        cd,cwd
+    endelse
+
+; Last, write the binary file with all the relevant info
+    IF keyword_set(bdir) THEN write_binary, mt, sts, odd, usno_dist, rmag, var_flag, vvals, binfname, first_time=first_time, fieldcovfrac=fieldcovfrac
+    
+    !p.position = save_pos
+    !p.multi = save_multi
+    save_match,mt,sts,/over,altroot=newroot
+ENDIF 
+
+END 

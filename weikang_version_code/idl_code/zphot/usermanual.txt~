@@ -1,0 +1,82 @@
+A short description about rphot usage
+
+The simplest way to start rphot window is run:
+
+rphot,data
+
+But it's not a efficiency way to run rphot, because you didn't give any input, so you'll have to give it a lot information later, which slows down the efficiency.
+
+A better way to run rphot is to give information in command line when starting it. There are a lot of hidden parameters can be given in command line:
+
+rphot,data,imlist=imlist,refname=refname,name=name,small=small,
+           targetra=ra,targetdec=dec,refra=refra,refdec=refdec,
+           radecfile=radecfile,fixrad=fixrad,basedir=basedir,
+           inskyrad=skyrad1,outskyrad=skyrad2
+
+The minimum two parameters I suggest to give is 'imlist' and 'refname'. For example:
+
+f=findfile('image/*_c.fit')
+rphot,data,imlist=f,refname=f[0]
+
+you can use 'help,f', 'print,f' to take a look how many images are found, for 'refname' parameter, usually choose a good image, you can change it easily, like 'refname=f[10]' or 'refname=f[x]' (x is the index number).
+If you are using this way, you'll need to do step "Choose Target" followed by step of "Choose Refstars", both are under menu of "Object".
+
+But usually, I will also give the target coordinate in the command line:
+
+rphot,data,imlist=f,refname=f[0],targetra=xxx.xxx,targetdec=xxx.xxx
+
+where target coordinates are in unit of degree. This way, you only need to do step "Choose Refstars".
+Note there is bug about this step. Always use "Auto Select" first, namely after you see the "Choose Refstars" window, always click "Auto Select" button before you use "Select by Cursor" button. You can change radius and minimun S/N number before click "Auto Select". "Auto Select" can be used for many times if necessary. After this, if you wish to add/delete any reference star, use "Select by Cursor" button to select them. But remember don't delete all of them, then re-select (this is the bug). Click "Done" button when you finished.
+
+By far, what I usually do is to save a copy of target/refstars coordinate file. Click "File" --> "Save Target/Refstar Ra Dec". The reason for this is, once you've saved coordinate file, next time you run rphot, you don't need to choose again, simply give the coordinate file in the command line:
+
+rphot,data,imlist=f,refname=f[0],radecfile='rphot_radec.txt'
+
+So the above two ways are the two commands I run rphot.
+
+OK, after all this the rphot can run photometry automatically, click "Disply" --> "Display Image", then click "Do All" button.
+
+Also a note: if IDL crashed/stopped at an image, run "retall" in the command line, then click "Do All" button again, there is a chance it can pass that bad image. But if not, two choices: 1:) if not too many images left after that bad image, you can click on each image after the bad image to let rphot finish photometry. 2:) but if there are a lot images left, may be quicker to start over again, but exclude the bad image in imlist of 'f'.
+
+After photometry, do the following click:
+"Examine", "tburst", "Log" (or "Linear" in default), "Magnitude"
+"Photometry", "PSF-fit", "Unblind", "Un-Bin"
+
+The light curve show be in the bottom right window.
+
+To save the product, click "File" button and choose:
+
+"Save LC plot..."
+"Save LC data..."
+"Save Target/Refstar Ra Dec" (if you haven't done it yet"
+"Save..."
+
+I highly recommend the last one "Save...", it will save all the IDL data structure to a file ("rphot.sav" in default). Next time if you want to check data, you don't need to run photometry again, simply restore it:
+
+rphot,data
+then choose "File" --> "Restore..." and find the "rphot.save" file. All the structure are there. The windows are still all black at this time, but click "Disply" --> "Display Image..." and choose any image to show the figure in the window  
+
+Next step, to do the calibration. Use the following command to download the USNO B1.0 R2 mag:
+usnoreadb,ra,dec,size,cat,save=save,fname=fname,rphot=rphot,maglim=maglim,fail=fail
+what I usually run is:
+usnoreadb,Raxxx.xxx,Decxxx.xxx,0.1,cat,/rphot
+There will be a file "usnob_xxxxxxx.dat" saved in current directory.
+In rphot window, click "Object" --> "Calibrate..." and find the file just downloaded.
+
+Congratulation! You've done running rphot photometry.
+
+Tricky, how to make window smaller? Use keyword "small". Try:
+rphot,data,/small
+
+
+
+Upgrade from rphot to zphot
+
+In the past year, I've been upgrading rphot to zphot in order to use it for more general image (mainly KAIT image). But in principle it can apply to any image if following some rules. Here are the main changes if any of you are interested:
+
+1. No need of "_cobj" file (optional). Only "_c.fit" is required. But in return it will need WCS information written in the fits header. zphot will use IDL command "extast" to extract WCS information from fits header. Usually I will use "http://astrometry.net/" code to add WCS information.
+2. Multi-band photometry, including multi-band calibration.
+3. Photometry on subtracted images if provided.
+4. Different aperture size photometry. 3 different user input aperture.
+5. Add additional image list to the existing structure. (command line)
+6. Set T_0 manually. (command line)

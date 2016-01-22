@@ -1,0 +1,532 @@
+#! /bin/sh
+
+echo ''
+echo 'Welcome to Kast reductions'
+echo 'This script was created by Ryan Foley in 2004'
+echo '...and updated by Jeffrey Silverman from 2006-2009'
+echo 'It is pretty clumsy'
+echo '...but still makes life a heck of a lot easier'
+echo ''
+echo '*************************************NOTE*************************************'
+echo 'The first arcs listed in the log file *MUST* be the 0.5" reference arcs from'
+echo 'the beginning of the night. However, their order does not matter. Moreover,'
+echo 'the rest of the observations in the log do not need to be in numerical order.'
+echo ''
+
+echo 'Enter the run ID:'
+read run
+echo 'Enter the logfile name:'
+read log
+
+#Make sure there isn't a file called rawdata
+#if [ -f rawdata ]
+#then
+# /bin/rm rawdata
+#fi
+#Make sure rawdata subdirectory exists
+#if [ ! -d rawdata ]
+#then
+# mkdir rawdata
+#fi
+#Copy raw data into rawdata subdirectory
+#/bin/cp -p *.fits rawdata/
+#/bin/cp -p $log rawdata/
+#\mv alldata* rawdata/
+
+cp rawdata/$log .   #Copy log file into run folder
+
+#Make copy commands for all files used
+gawk '
+{
+ for (i = 1; i <= 4; i++)  #Do this for each side
+ {
+  if ($2 == i)  #If we are on a particular side
+  {
+   if ($1 ~ /\-/)  #In case there are flats
+   {
+    split($1, temp, "-")  #Split the field into a start and end number
+   }
+   else  #Otherwise make the start and end number the same number
+   {
+    temp[1] = $1
+    temp[2] = $1
+   }
+   while (temp[1] <= temp[2])  #From start to end do
+   {  #We print out each file into one big list
+       if (i == 1)
+       {
+           printf("cp rawdata/b%d.fits .\n", temp[1]) >> ("list")
+       }
+       if (i == 2)
+       {
+           printf("cp rawdata/r%d.fits .\n", temp[1]) >> ("list")
+       }
+       #Assume 3rd side also uses the red CCD (i.e., Hal setup)
+       if (i == 3)
+       {
+           printf("cp rawdata/r%d.fits .\n", temp[1]) >> ("list")
+       }
+    close("list")  #Make sure we close this
+    temp[1]++  #Increment the file number
+   }
+  }
+ }
+}' $log
+#Make list executable
+chmod u+x list
+#Run list
+./list
+#Remove our temporary file
+/bin/rm list
+
+export run          #Make 'run' environmental
+lines=`wc -l $log`  #Grab the number of lines in the log
+export lines        #Make 'lines' environmental
+
+#Change r35.fits into r.35.fits
+ls r*.fits | sed 's/r/r./g' > temp.dat
+
+#Convert file names into .fits
+gawk '
+{
+ split($0, temp, ".")   #Split the r.35.fits into separate variables
+ printf("mv %s%s.%s %sred%03d.fits\n",temp[1],temp[2],temp[3],ENVIRON["run"],temp[2]) > "temp.run"
+}' temp.dat
+
+#Make temp.run executable
+chmod u+x temp.run
+
+#Run temp.run
+./temp.run
+
+#Remove our temporary files
+/bin/rm temp.dat
+/bin/rm temp.run
+
+#Change b35.fits into b.35.fits
+ls b*.fits | sed 's/b/b./g' > temp.dat
+
+#Convert file names into .fits
+gawk '
+{
+ split($0, temp, ".")   #Split the b.35.fits into separate variables
+ printf("mv %s%s.%s %sblue%03d.fits\n",temp[1],temp[2],temp[3],ENVIRON["run"],temp[2]) > "temp.run"
+}' temp.dat
+
+#Make temp.run executable
+chmod u+x temp.run
+
+#Run temp.run
+./temp.run
+
+#Remove our temporary files
+/bin/rm temp.dat
+/bin/rm temp.run
+
+#Remove old all files if they exist
+if [ -f all* ]
+then
+ /bin/rm all*
+fi
+
+
+if [ -f rawdata ]
+then
+ /bin/rm rawdata
+fi
+
+
+
+#Make the "all" files for cropping
+gawk '
+{
+ for (i = 1; i <= 4; i++)  #Do this for each side
+ {
+  if ($2 == i)  #If we are on a particular side
+  {
+   if ($1 ~ /\-/)  #In case there are flats
+   {
+    split($1, temp, "-")  #Split the field into a start and end number
+   }
+   else  #Otherwise make the start and end number the same number
+   {
+    temp[1] = $1
+    temp[2] = $1
+   }
+   while (temp[1] <= temp[2])  #From start to end do
+   {  #We print out the files into separate files
+       if (i == 1)
+       {
+           printf("%sblue%03d.fits\n", ENVIRON["run"], temp[1]) >> ("all" i)
+       }
+       if (i == 2)
+       {
+           printf("%sred%03d.fits\n", ENVIRON["run"], temp[1]) >> ("all" i)
+       }
+       #Assume 3rd side also uses the red CCD (i.e., Hal setup)
+       if (i == 3)
+       {
+           printf("%sred%03d.fits\n", ENVIRON["run"], temp[1]) >> ("all" i)
+       }
+    close("all" i)  #Make sure we close this
+    temp[1]++  #Increment the file number
+   }
+  }
+ }
+}' $log
+
+#Remove old startred.cl if it exists
+if [ -f startred.cl ]
+then
+ /bin/rm startred.cl
+fi
+
+#Make startred.cl
+#echo "baseline @all1 b//@all1" >> startred.cl
+#echo "baseline @all2 b//@all2" >> startred.cl
+echo "uvfixhead b//@all1" >> startred.cl
+echo "uvfixhead b//@all2" >> startred.cl
+if [ -f all3 ]
+then
+    echo "uvfixhead b//@all3" >> startred.cl
+fi
+echo "setairmass b//@all1" >> startred.cl
+echo "setairmass b//@all2" >> startred.cl
+if [ -f all3 ]
+then
+    echo "setairmass b//@all3" >> startred.cl
+fi
+echo ''
+#echo 'Go in to IRAF and look at cross cuts from a couple flats from Side 1 (****using implot****)'
+#echo 'Enter the minimum pixel value where the flat is still flat on Side 1:'
+#read low
+#export low
+#echo 'Enter the maximum pixel value where the flat is still flat on Side 1:'
+#read high
+#export high
+#gawk 'BEGIN { printf "ccdproc b//@all1 output=t//@all1 trim+ trimsec=[4:2046,%s:%s]\n",ENVIRON["low"],ENVIRON["high"] >> ("startred.cl")}'
+
+#echo ''
+#echo 'Go in to IRAF and look at cross cuts from a couple flats from Side 2 (****using implot****)'
+#echo 'Enter the minimum pixel value where the flat is still flat on Side 2:'
+#read low
+#export low
+#echo 'Enter the maximum pixel value where the flat is still flat on Side 2:'
+#read high
+#export high
+#gawk 'BEGIN { printf "ccdproc b//@all2 output=t//@all2 trim+ trimsec=[2:1199,%s:%s]\n",ENVIRON["low"],ENVIRON["high"] >> ("startred.cl")}'
+
+#Remove old flat lists if they exist
+if [ -f f*list ]
+then
+ /bin/rm f*list
+fi
+
+#Make the flat lists and add to startred.cl
+gawk '
+{
+ for (i = 1; i <= 30; i++)  #Assumes we have at most 30 groups
+ {
+  if ((($4 ~ /flat/) || ($4 ~ /Flat/)) && ($3 == i))  #If we have flats for a particular group
+  {
+   split($1,temp,"-")  #Same splitting and writing technique as above
+   while (temp[1] <= temp[2])
+   {
+    if ($2 == 1) printf(ENVIRON["run"] "blue%03d.fits\n", temp[1]) >> ("f" i "list")
+    else printf(ENVIRON["run"] "red%03d.fits\n", temp[1]) >> ("f" i "list")
+    close("f" i "list")  #Close that file!
+    temp[1]++
+   }
+   if ($2 == 1) ord = 6  #If a blue flat, we want a 6th order function
+   else ord = 4  #If a red flat, we want a 4th order
+   if ($2 == 1) rej = "ccdclip"  #If a blue flat, we want CR rejection
+   else rej = "none"  #If a red flat, we want *NO* CR rejection
+   printf("flatcombine b//@f%dlist output=flat%d reject=%s\nresponse flat%d flat%d flat%dres order=%d\n\nccdproc b//@o%dlist output=f//@o%dlist flatcor+ flat=flat%dres\n", i, i, rej, i, i, i, ord, i, i, i) >> "startred.cl"
+  }
+ }
+}' $log
+
+#Remove old object lists if they exist
+if [ -f o*list ]
+then
+ /bin/rm o*list
+fi
+
+#Make the object lists
+gawk '
+{
+ for (i = 1; i <= 30; i++)  #Assumes we have at most 30 groups
+ {
+  if ((($4 !~ /flat/) && ($4 !~ /Flat/)) && ($3 == i))  #If not a flat, i.e. arc or obj
+  {
+   split($1,temp,"-")  #Same splitting and writing technique as above
+   if (temp[2] != "")
+   {
+    while (temp[1] <= temp[2])
+    {
+     if ($2 == 1) printf(ENVIRON["run"] "blue%03d.fits\n", temp[1]) >> ("o" i "list")
+     else printf(ENVIRON["run"] "red%03d.fits\n", temp[1]) >> ("o" i "list")
+     close("o" i "list")
+     temp[1]++
+    }
+   }
+   else
+   {
+    if ($2 == 1) printf(ENVIRON["run"] "blue%03d.fits\n", $1) >> ("o" i "list")
+    else printf(ENVIRON["run"] "red%03d.fits\n", $1) >> ("o" i "list")
+    close("o" i "list")
+   }
+  }
+ }
+}' $log
+
+#Remove old arc extraction script
+if [ -f arcs.cl ]
+then
+ /bin/rm arcs.cl
+fi
+
+#Make arc extraction script (blue)
+gawk '
+{
+ if ($2 == 1)
+ {
+ for (i = 1; i <= 30; i++)  #Assumes we have at most 30 groups
+ {  #If an object with the correct group, and no ref selected yet
+  if ((($4 ~ /obj/) || ($4 ~ /Obj/)) && ($3 == i) && (refname[i] == ""))
+  {
+   refname[i] = $1
+  }
+ }
+ if (($4 ~ /arc/)  || ($4 ~ /Arc/)) #If it is an arc
+ {
+  arcname[k+1] = $1  #Grab the arc names in order
+  arcgroup[k+1] = $3  #Also grab their group numbers
+  if (arcname[k+1] != arctemp)  #No dupes!
+  {
+   arctemp = arcname[k]
+   k++  #Increase k
+  }
+ }
+ }
+ linetemp = split(ENVIRON["lines"], nlines, " ")  #Grab the actual lines
+ for (i in arcname)
+ {
+  if (arcname[i] != "")  #Only if there is an arc there
+  {
+   arc = arcname[i]
+   for (j in refname)  #Search over the refs
+   {
+    if (j == arcgroup[i])  #If they are in the same group
+    {
+     ref = refname[j]
+    }
+   }
+   if ((NR == nlines[1]) && (arc != arctemp2))  #Only last time
+   {
+     printf("apall f%sblue%03d ref=f%sblue%03d recen- trace- back- inter-\n", ENVIRON["run"], arc, ENVIRON["run"], ref) >> "arcs.cl"
+     arctemp2 = arc
+   }
+  }
+ }
+}' $log
+
+#Make arc extraction script (red)
+gawk '
+{
+ if (($2 == 2) || ($2 == 3))
+ {
+ for (i = 1; i <= 30; i++)  #Assumes we have at most 30 groups
+ {  #If an object with the correct group, and no ref selected yet
+  if ((($4 ~ /obj/) || ($4 ~ /Obj/)) && ($3 == i) && (refname[i] == ""))
+  {
+   refname[i] = $1
+  }
+ }
+ if (($4 ~ /arc/)  || ($4 ~ /Arc/)) #If it is an arc
+ {
+  arcname[k+1] = $1  #Grab the arc names in order
+  arcgroup[k+1] = $3  #Also grab their group numbers
+  if (arcname[k+1] != arctemp)  #No dupes!
+  {
+   arctemp = arcname[k]
+   k++  #Increase k
+  }
+ }
+ }
+ linetemp = split(ENVIRON["lines"], nlines, " ")  #Grab the actual lines
+ for (i in arcname)
+ {
+  if (arcname[i] != "")  #Only if there is an arc there
+  {
+   arc = arcname[i]
+   for (j in refname)  #Search over the refs
+   {
+    if (j == arcgroup[i])  #If they are in the same group
+    {
+     ref = refname[j]
+    }
+   }
+   if ((NR == nlines[1]) && (arc != arctemp2))  #Only last time
+   {
+      printf("apall f%sred%03d ref=f%sred%03d recen- trace- back- inter-\n", ENVIRON["run"], arc, ENVIRON["run"], ref) >> "arcs.cl"
+      arctemp2 = arc
+   }
+  }
+ }
+}' $log
+
+
+    
+
+
+#Remove old dispersion correction script
+if [ -f dcorr.cl ]
+then
+ /bin/rm dcorr.cl
+fi
+
+#Make dispersion correction script
+gawk '
+{
+ if (($4 ~ /obj/) || ($4 ~ /Obj/))  #If obj
+ {
+   split($1,temp,"-")  #Same splitting and writing technique as above
+   if (temp[2] != "")
+   {
+    while (temp[1] <= temp[2])
+    {
+       ++k  #Increase k early... makes things easier
+       objname[k] = temp[1]  #Grab the object name
+       objside[k] = $2  #Grab the object side
+       objgroup[k] = $3  #Grab the object group
+       temp[1]++
+    }
+   }
+   else
+   {
+     ++k  #Increase k early... makes things easier
+     objname[k] = $1  #Grab the object name
+     objside[k] = $2  #Grab the object side
+     objgroup[k] = $3  #Grab the object group
+   }
+ }
+ if (($4 ~ /arc/) || ($4 ~ /Arc/)) #If we have an arc
+ {
+  arcname[$3] = $1  #Assign the name to the spot with its group number
+ }  #This assumes that the best arc is the last arc
+ linetemp = split(ENVIRON["lines"], nlines, " ")  #Same splitting as above
+ for (i in objname)  #For all objects
+ {
+  obj = objname[i]
+  arc = arcname[objgroup[i]]  #Grab the arc from the right group
+  if (NR == nlines[1])  #Only the last time
+  {
+   if (objside[i] == 1)
+   {
+    printf("disp f%sblue%03d.ms.fits f%sblue%03d.ms.fits\n", ENVIRON["run"], obj, ENVIRON["run"], arc) >> "dcorr.cl"
+   }   
+   if (objside[i] == 2)
+   {
+    printf("disp f%sred%03d.ms.fits f%sred%03d.ms.fits\n", ENVIRON["run"], obj, ENVIRON["run"], arc) >> "dcorr.cl"
+   }
+   #Assume 3rd side also uses the red CCD (i.e., Hal setup)
+   if (objside[i] == 3)
+   {
+    printf("disp f%sred%03d.ms.fits f%sred%03d.ms.fits\n", ENVIRON["run"], obj, ENVIRON["run"], arc) >> "dcorr.cl"
+   }
+  }
+ }
+}' $log
+
+#Remove old observation lists if they exist
+if [ -f obs* ]
+then
+ /bin/rm obs*
+fi
+
+#Make obs lists
+gawk '
+{
+ if (($4 ~ /obj/) || ($4 ~ /Obj/)) #If an object
+ {
+  if ($2 == 1)  #If side 1
+  {
+   split($1,temp,"-")  #Same splitting and writing technique as above
+   if (temp[2] != "")
+   {
+    while (temp[1] <= temp[2])
+    {
+       printf("df%sblue%03d.ms.fits\n", ENVIRON["run"], temp[1]) > "obs1"
+       temp[1]++
+    }
+   }
+   else
+   {
+       printf("df%sblue%03d.ms.fits\n", ENVIRON["run"], $1) > "obs1"
+   }
+  }
+  if ($2 == 2)  #If side 2
+  {
+   split($1,temp,"-")  #Same splitting and writing technique as above
+   if (temp[2] != "")
+   {
+    while (temp[1] <= temp[2])
+    {
+       printf("df%sred%03d.ms.fits\n", ENVIRON["run"], temp[1]) > "obs2"
+       temp[1]++
+    }
+   }
+   else
+   {
+       printf("df%sred%03d.ms.fits\n", ENVIRON["run"], $1) > "obs2"
+   }
+  }
+  #Assume 3rd side also uses the red CCD (i.e., Hal setup)
+  if ($2 == 3)  #If side 3
+  {
+   split($1,temp,"-")  #Same splitting and writing technique as above
+   if (temp[2] != "")
+   {
+    while (temp[1] <= temp[2])
+    {
+       printf("df%sred%03d.ms.fits\n", ENVIRON["run"], temp[1]) > "obs3"
+       temp[1]++
+    }
+   }
+   else
+   {
+       printf("df%sred%03d.ms.fits\n", ENVIRON["run"], $1) > "obs3"
+   }
+  }
+ }
+}' $log
+
+echo ''
+echo ''
+echo 'Script finished!'
+echo ''
+echo 'You now have the following lists:'
+echo '          allX - all files from Side X'
+echo '        fXlist - flats from Group X (X=1 is Side 1, X>1 is Side 2)'
+echo '        oXlist - objects from Group X (X=1 is Side 1, X>1 is Side 2)'
+echo '          obsX - all flattened and dispersion corrected objects from Side X'
+echo '                 (it will be useful when doing the IDL half of the reduction)'
+echo ''
+echo 'You must first run kastbias.pro in IDL on all the files, after finding the trim'
+echo 'sections, then you can use the IRAF scripts described below.'
+echo ''
+echo 'You now have the following IRAF scripts:'
+echo '   startred.cl - continues in IRAF the reduction after bias subtraction and'
+echo '                 trimming in IDL (fixes headers, sets airmasses, and flattens'
+echo '                 objects and arcs)'
+echo '       arcs.cl - runs "apall" to extract all arcs and uses appropriate'
+echo '                 objects as aperture references; all objects must already be'
+echo '                 extracted before running this script'
+echo '      dcorr.cl - runs "disp" to dispersion correct all objects; all arcs must'
+echo '                 have their lines identified (either using "identify" or'
+echo '                 "reidentify") before running this script'
+echo ''
+echo 'If your flats were not all consecutive image numbers, then please check'
+echo '  startred.cl to make sure that it will not try to flatten any'
+echo '  objects more than once!!!!!!'

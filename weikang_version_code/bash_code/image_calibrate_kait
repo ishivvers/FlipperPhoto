@@ -1,0 +1,68 @@
+#!/bin/sh
+
+if [ $# -le 0 ]
+then
+        echo "Usage:$0 fitfilename(s)"
+        exit 0
+fi
+
+for file in $*
+do
+  echo "Working on file $file"
+
+  if [ ! -e $file ]
+  then
+          echo "File $file not exit!"
+          exit 0
+  fi
+  
+  #HEAD=`echo $file | sed 's/_c\.fits//' | sed 's/_c\.fit//' |  sed 's/\.fits//' | sed 's/\.fit//' |  sed 's/\.imh//'`
+  #Sobjfile=${HEAD}_sobj.fit
+  
+  HEAD=`echo $file | sed 's/\.fits//' | sed 's/\.fit//' |  sed 's/\.fits//' | sed 's/\.fit//' |  sed 's/\.imh//'`
+  SHEAD=`echo $file | sed 's/_c\.fits//' | sed 's/_c\.fit//' |  sed 's/\.fits//' | sed 's/\.fit//' |  sed 's/\.imh//'`
+  
+  newfitsfile=${SHEAD}_cnew.fit
+  if [ ! -e $newfitsfile ]
+  then
+    Ssolve-field-kait $file
+    if [ ! -e $newfitsfile ]
+    then
+      echo "Sorry, unable to calibrate $file"
+      continue
+    fi
+  fi
+
+  cimgfile=${SHEAD}_c.fit
+  if [ -e $cimgfile ]
+  then
+    rm -f $cimgfile
+  fi
+  ln -s $newfitsfile $cimgfile
+
+  sobjfile=${SHEAD}_sobj.fit
+  if [ ! -e $sobjfile ]
+  then
+    Ssex-kait $file
+    if [ ! -e $sobjfile ]
+    then
+      echo "Sorry, unable to generate $sobjfile"
+      continue
+    fi
+  fi
+
+  cobjfile=${SHEAD}_cobj.fit
+  if [ ! -e $cobjfile ]
+  then
+    echo "sobj2cobjk,'$sobjfile'"  | nice idl
+    #echo $cmd
+    #echo sobj2cobjk,"$sobjfile"  | nice idl
+    if [ ! -e $cobjfile ]
+    then
+      echo "Sorry, unable to generate $cobjfile"
+      continue
+    fi
+  fi
+
+done
+

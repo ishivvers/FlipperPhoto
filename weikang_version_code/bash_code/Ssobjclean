@@ -1,0 +1,22 @@
+#!/bin/sh
+
+if [ $# -le 0 ]
+then
+        echo "Usage:$0 fitfilename(s)"
+        exit 0
+fi
+
+for file in $*
+do
+  echo "Working on file $file"
+
+  if [ ! -e $file ]
+  then
+          echo "File $file not exit!"
+          exit 0
+  fi
+  
+  echo "sobjclean,'$file'"  | nice idl
+
+done
+

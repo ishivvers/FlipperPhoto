@@ -1,0 +1,850 @@
+These are instructions for using my swift data analysis procedures to make
+multi-wavelength lightcurves comparing ROTSE, BAT, and XRT data.  The results
+obtained here agree with other simple analyses.  For this cookbook I assume
+that all the spectra are power-laws, with absorption put in as appropriate in
+the XRT data.  The idl code can also handle a GRB model ("Band") function, but
+the nuances of deciding which spectrum is appropriate is beyond the scope of
+this cookbook.
+
+This cookbook runs through an example analysis, for GRB 080330.
+
+-Eli Rykoff
+April 23, 2008
+
+
+DOWNLOADING THE DATA:
+
+For data that is more than a week old, data is downloaded from the HEASARC
+archive server Swift interface:
+http://heasarc.gsfc.nasa.gov/cgi-bin/W3Browse/swift.pl
+For data that is less than a week old, preliminary data is downloaded from the
+quicklook archive:
+http://swift.gsfc.nasa.gov/cgi-bin/sdc/ql?
+
+For the regular archive server, select the burst from the pull-down menu and
+the target id is automatically filled (for GRB 080413A, this is 309096).  Click
+"Start Search" to get all the observations of the burst.  The prompt data
+(which we are generally concerned with) will be observation 000, so click the
+checkbox next to "00309096000".  For the data products to download, select
+"Auxilliary Data", "BAT Data", "XRT Data", and (if you want it) "UVOT Data".
+(This cookbook does not cover UVOT data).  We do _not_ want Logs or TDRSS
+data.  Click "Retrieve" and wait for the tarfile to be built.  When it is
+ready, save it on a data disk with lots of space (these files can contain 200
+Mb-1Gb.  Do NOT save this to your home area!).
+
+Then untar the downloaded tarball, and it will build a directory structure as
+follows:
+00309096000/		: observation number (target + obs index, 000 here)
+00309096000/auxil/	: spacecraft attitude data
+00309096000/bat/	: BAT raw and pre-processed data
+00309096000/xrt/	: XRT raw and pre-processed data
+
+DOING THE BAT ANALYSIS:
+
+The BAT analysis requires an installation of the HEASOFT analysis software
+(which is installed on rotse2; updates are occasionally necessary and a bit of
+a pain, but it's up to date as of April, 2008).  There are also custom
+perlscripts in /products/bin/ and idl tools in
+/products/idltools/umrotse_idl/swift_analysis.
+
+First, we need the following data: The trigger time of the burst (month, day,
+year, hour, minute, second) and the best optical position available.  GRBlog is
+good for this.  For GRB080413A this is: 04/13/2008, 02:54:19.3 (GCN type 61
+notice and GCN 7594).  The position is RA=19:09:11.8, Dec=-27:40:41.6 (ROTSE,
+GCN 7593), which corresponds to RA=287.29917, Dec=-27.678222.  We will need the
+RA/Dec in decimal degree format.  Also, it is very important that the burst
+date/time is the _same_ as used in the ROTSE analysis in RPHOT, or there will
+be a time offset!
+
+
+My BAT analysis software requires that you run in a subdirectory in the bat/
+directory.  So now do:
+
+$ cd 00309096000/bat	# into the bat directory
+$ mkdir analysis		# this can be called anything; I use analysis
+$ cd event		# this directory contains the raw event data
+$ cp sw00309096000bevshsp_uf.evt.gz ../analysis/ # the .evt file has raw data
+$ cd ../analysis/
+$ gunzip sw00309096000bevshsp_uf.evt.gz    # the data file must be unzipped
+
+Now, in the analysis directory, create a "rotse.dat" file that contains
+information for the analysis.  The initial version of rotse.dat will contain
+the burst date and time as well as a rough guess of the time interval to use
+for spectral fitting.  Multiple time intervals can be specified, after the
+first pass analysis.  For GRB 080413A, GCN 7604 (refined BAT analysis) says the
+bursts goes from T~-0.1 to T+~80s, so we'll use -1-80 s as our initial range,
+with an 80 channel spectrum (you should always do an 80 channel spectrum).
+
+$ cat rotse.dat
+2008 04 13 02 54 19.3
+
+-1.0 80.0 80
+
+Now we're ready to run the analysis.  First, we need to initialize the HEASOFT
+software:
+
+$ heainit
+
+And we can run the rotse bat processing pipeline.  The first run can take many
+minutes depending on the size of the data file, because it is reprocessing all
+the events with the new, better position.  Any subsequent runs in the same
+directory will be faster.
+
+$ rotse_bat_process.pl -e sw00309096000bevshsp_uf.evt -f rotse.dat -r 287.29917 -d -27.678222
+
+After it is done, you will have the following additional files:
+output.aux  - this file contains key information based on the Ra/dec.  Do not 
+	      delete unless you want to do the whole processing again.
+burst_sn.lc - GRB lightcurve, 15-150 keV, signal-to-noise binning (recommended)
+burst_1s.lc - GRB lightcurve, 15-150 keV, 1s binning
+burst_00_-1_80.rsp - spectral response file (rsp) for index 0, -1-80s.  If you
+                    have multiple lines in rotse.dat, then the next will get
+                    index 1, 2, etc.
+burst_00_-1_80.pha - spectral data file (pha) for index 0, -1-80s.
+
+Now is a good time to check out the light curve.  This can be done in IDL with
+the "plot_bat_lc" tool:
+
+IDL> plot_bat_lc,'x','burst_sn.lc','rotse.dat'
+
+The default is the whole time range of the data file, with a linear plot.  It
+is worth it to zoom in on the burst:
+IDL> plot_bat_lc,'x','burst_sn.lc','rotse.dat',xrange=[-10,100],/yl,yrange=[1e-3,10]
+
+For this burst, there is a hint of early emission as soon as ~-10s, then the
+main event around 0s, another peak at 15s, and a final peak at 45s.  Just for
+practice, we'll redo the processing with 0-20s (the first two peaks) and 0-60s
+(all 3 peaks).
+
+The new rotse.dat is:
+2008 04 13 02 54 19.3
+
+0.0 20.0 80
+0.0 60.0 80
+
+$ rotse_bat_process.pl -e sw00309096000bevshsp_uf.evt -f rotse.dat -r 287.29917 -d -27.678222
+
+We now have burst_00_0_20.pha and burst_01_0_60.pha.
+
+And on to the spectral fitting, using xspec.  This is not a full guide to using
+xspec, which requires practice and fiddling and asking questions and reading
+the help files...but bat fitting with xspec is fairly straightforward.  We'll
+just analyze the time-average (0-60s) spectrum now, but it's worth analyzing
+both to see if there is any difference in the photon index Gamma (And you can
+also analyze each peak separately).
+
+$ xspec11
+XSPEC>cpd /xw			# open an x window
+XSPEC>data burst_01_0_60.pha    # load in the spectral data file
+                                # note that the response file is loaded
+                                # automatically
+ Net count rate (cts/s) for file   1  0.1047    +/-  6.0192E-03
+   using response (RMF) file...       burst_01_0_60.rsp
+   1 data set is in use
+XSPEC>setplot energy		# plotting x-axis should be energy units
+XSPEC>query y			# default answer to all questions is "yes"
+Querying disabled - assuming answer is yes
+XSPEC>ignore 0.0-15.0 150.0-1000.0	   # only use 15-150 keV range
+ ignoring channels     1 -     4 in dataset     1
+ ignoring channels    63 -    80 in dataset     1
+XSPEC>plot ldata		# plot the data in a log scale
+XSPEC>model peg			# use the pegged power-law (de-correlates errors)
+  Model:  pegpwrlw<1>
+Input parameter value, delta, min, bot, top, and max values for ...
+                   1      0.01        -3        -2         9        10
+1:pegpwrlw:PhoIndex>	  # hit enter for default
+                   2     -0.01      -100      -100     1E+10     1E+10
+2:pegpwrlw:eMin>15	  # set low energy to 15 keV
+                  10     -0.01      -100      -100     1E+10     1E+10
+3:pegpwrlw:eMax>150	  # set high energy to 150 keV
+                   1      0.01         0         0     1E+24     1E+24
+4:pegpwrlw:norm>          # enter for default
+  ---------------------------------------------------------------------------
+  ---------------------------------------------------------------------------
+  Model:  pegpwrlw<1>
+  Model Fit Model Component  Parameter  Unit     Value
+  par   par comp
+    1    1    1   pegpwrlw   PhoIndex            1.00000     +/-   0.00000
+    2    2    1   pegpwrlw   eMin     keV        15.0000     frozen
+    3    3    1   pegpwrlw   eMax     keV        150.000     frozen
+    4    4    1   pegpwrlw   norm                1.00000     +/-   0.00000
+  ---------------------------------------------------------------------------
+  ---------------------------------------------------------------------------
+ Chi-Squared =      141.8174     using    58 PHA bins.
+ Reduced chi-squared =      2.532454     for     56 degrees of freedom
+ Null hypothesis probability = 2.183E-09
+XSPEC>fit		     # do the fitting
+...
+    1    1    1   pegpwrlw   PhoIndex            1.54606     +/-  0.358909E-01
+...
+ Reduced chi-squared =      1.082703     for     56 degrees of freedom
+[this is a pretty good fit]  [Also note that the power law index is consistent
+with the GCN circular]
+XSPEC>plot ldata ra	# plot log-data and error residuals in ratio form
+			# this makes sure that everything looks okay.  And it
+			# does.
+XSPEC>error 1 4         # calculate 90% confidence errors on params 1, 4
+                        # don't worry about the warnings!
+                        # these errors are the "correct" errors as opposed to
+			# the approximate errors in the fit output
+ Parameter   Confidence Range (     2.706)
+     1     1.48583         1.60589        (   -6.023133E-02,     5.982816E-02)
+     4     55314.0         58786.3        (    -1700.47    ,      1771.83    )
+XSPEC>show		# show all the relevant data...this is an excerpt with
+			# the important lines
+  Response (RMF) file    : burst_01_0_60.rsp
+  Noticed channels     5 to    62
+  File observed count rate    9.0466E-02+/-1.96764E-03 cts/s
+  Model:  pegpwrlw<1>
+  Model Fit Model Component  Parameter  Unit     Value
+  par   par comp
+    1    1    1   pegpwrlw   PhoIndex            1.54606     +/-  0.358909E-01
+    2    2    1   pegpwrlw   eMin     keV        15.0000     frozen
+    3    3    1   pegpwrlw   eMax     keV        150.000     frozen
+    4    4    1   pegpwrlw   norm                57014.5     +/-   1085.03
+  ---------------------------------------------------------------------------
+  ---------------------------------------------------------------------------
+ Chi-Squared =      60.63134     using    58 PHA bins.
+ Reduced chi-squared =      1.082703     for     56 degrees of freedom
+ Null hypothesis probability = 0.313
+XSPEC>quit   # we're done...we'll record these numbers in a text file
+Do you really want to exit? (y)y
+
+Now we put all the relevant data into a file which I call "fluxinfo_bat.dat"
+(although it can be named anything).  The file has the following format:
+
+$ cat fluxinfo_bat.dat
+date 2008 04 13 02 54 19.3
+
+bat -10 80
+ct 9.0466E-02 1.96764E-03
+xgamma X
+en 15.0 150.0
+gamma 1.54606 1.48583 1.60589
+norm 57014.5 55314.0 58786.3
+
+The first line ("date") has the same date format as the first line in the
+rotse.dat file.  Then we are allowed multiple sections if we have different
+spectral fits, or one section for the time-averaged spectral fit.  The first
+line of the section ("bat") specifies the time range (relative to t0) to make a
+bat lightcurve.  This can be larger than the time range used to make the
+spectral fit (eg, in the spectrum I didn't use the 60-80s bin since it's mostly
+noise, but in a lightcurve we do want to record that data).  Then we specify
+the observed count rate and error ("ct"), photon index ("gamma"), normalization
+("norm"), and energy range for the pegged power-law("en").  Finally, we have a
+placeholder for the photon index from the XRT analysis ("xgamma") that is
+necessary for plotting XRT and BAT data on the same axes.  We'll have to fill
+this in after doing the XRT analysis.  Note that the count rate has a simple
++/- error bar, but the "gamma" and "norm" parameters take the low/high range
+from the output of the xspec "error" command.  The IDL tool that makes the BAT
+lightcurve will read in this file, and will not work if any of the sections are
+missing or incorrectly formatted (eg, no gamma, or missing error bar).
+
+We will complete the BAT analysis (only one more IDL command) after getting
+xgamma...
+
+DOING THE XRT ANALYSIS:
+
+Here we use the default XRT pipeline tool for the basic analysis, and then run
+more sophisticated analysis on the higher-level output products.  The swift
+xrtpipeline tool can be very picky about where you make your output directory,
+so make sure that the output directory is NOT in the burst data directory.
+
+Go back to the directory that contains the 00309096000/ directory tree.  There,
+make an "output/" directory:
+
+$ cd ../../../   # as many times as necessary
+$ ls
+00308041000  w3browse-13312.tar
+$ mkdir output
+$ ls
+00308041000  output  w3browse-13312.tar
+
+Now, we can run the xrtpipeline software:
+$ xrtpipeline indir=./00309096000 outdir=./output steminputs=sw00309096000
+srcra=287.29917 srcdec=-27.678222 >& xrtpipeline.log &
+
+$ tail -f xrtpipeline.log
+
+Hopefully everything will run and it will say " Exit with no errors" at the
+end.  Occasionally, there is a hiccup at the very beginning where it can't get
+the TELDEF file.  This is caused by occasional problems at the archive server.
+The only cure is to wait about an hour and try again.  If there are other
+errors, I don't have a quick fix.
+
+$ cd output
+$ mkdir v1       # this will be version 1 of the analysis, in case something
+                 # needs to be redone/updated/etc
+$ cd v1
+
+From the parent directory, we need the cleaned ("cl") data for the wt mode
+("xwt") and pc mode ("xpc") data.  We also need a "Good Time Interval" ("gti")
+file (either the PC or WT version will do).  So while in the v1 subdirectory:
+
+$ cp ../*cl.evt .
+$ ls ../*gti.fits
+../sw00309096000xpcw2po_clgti.fits  ../sw00309096000xwtw2po_clgti.fits
+$ cp ../sw00309096000xwtw2po_clgti.fits .
+$ cp ../../00309096000/bat/analysis/rotse.dat .   # get the rotse.dat file
+                                                  # which has the burst time
+$ ls
+rotse.dat                    sw00309096000xwtw2po_cl.evt
+sw00309096000xpcw2po_cl.evt  sw00309096000xwtw2po_clgti.fits
+
+Now that we have the WT mode and PC mode event files, a GTI file and the
+rotse.dat file (with the burst date/time) we're ready to go.
+
+It is useful to know the orbit times over which the grb was observed, as well
+as the times over which the WT and PC mode observations were done.  I have a
+couple of IDL tools to help with this, although they are not completely
+automated.  Let's look at the orbit times first:
+
+IDL> xrt_print_orbits,'rotse.dat','sw00309096000xwtw2po_clgti.fits'
+Start (s)       Stop (s)
+         62.90        335.50
+       3618.30       5071.78
+       5200.78       5372.78
+       5377.78       6118.50
+       9445.50      11788.78
+      11807.78      11901.50
+      15196.50      17684.50
+      20979.50      21070.77
+      21252.77      21460.77
+
+These are all the "good time" observations times.  Note that if there is a
+large gap that is due to an orbital gap, and a small gap is due to some other
+issue that interrupted observations (warm CCD, earth limb, etc.) We only have
+observations in the first orbit to 336 s.  It appears that the 2nd orbit goes
+from 3618s to 6118s, with a couple short interruptions.  Etc.  It is worth
+writing down marking times between orbits.  We will denote 400, 7000, 12000,
+18000, and 22000 as these marker times.
+
+Next, we need to know when the WT mode and PC mode observations were taken.
+Due to occasional "flickering" between modes (if the source is moderately
+bright; this was more of a problem for the first year of observations) this
+demarkation isn't obvious without looking at the data visually.  We then use:
+
+IDL> xrt_wtpc_check
+syntax- xrt_wtpc_check,datfile,wtevt,pcevt,xrange=xrange
+IDL> xrt_wtpc_check,'rotse.dat','sw00309096000xwtw2po_cl.evt','sw00309096000xpcw2po_cl.evt'
+
+The default is to plot 0-1000 s, which in this case covers the first orbit.
+The red shows WT mode, green PC mode.  Let's zoom in on the transition:
+IDL>
+xrt_wtpc_check,'rotse.dat','sw00309096000xwtw2po_cl.evt','sw00309096000xpcw2po_cl.evt',xrange=[100,200]
+
+We can see that the gap is at 150s.  So this is what we will record.  Let's
+make sure there isn't any further WT mode data in the second orbit:
+IDL> xrt_wtpc_check,'rotse.dat','sw00309096000xwtw2po_cl.evt','sw00309096000xpcw2po_cl.evt',xrange=[5000,6000]
+
+It's all green, so it's all PC after the first 150s.
+
+Next, we need to check if we're going to have any potential pile-up problems.
+Pile-up is an issue in WT mode with a count rate >~ 100cps, and in PC mode with
+a count rate >~0.5-0.75 cps.  I have a simple tool that does a CRUDE count-rate
+calculation for each orbital period.  This is only an approximate number that
+can tell us if pile-up is a potential issue:
+
+IDL> xrt_check_rate,'sw00309096000xwtw2po_cl.evt','sw00309096000xwtw2po_clgti.fits'
+orbit:            0 rate:        16.736730
+orbit:            1 rate:        1.3132664
+
+The orbit 0 rate for WT mode is relatively high, but not so high that there's a
+risk of pile-up.  The orbit 1 is just a spurious number, since no significant
+observations were done in WT mode after orbit 0.  And for PC mode...
+
+IDL> xrt_check_rate,'sw00309096000xpcw2po_cl.evt','sw00309096000xwtw2po_clgti.fits'
+orbit:            0 rate:        2.6146847
+orbit:            1 rate:       0.41040722
+orbit:            2 rate:       0.40697580
+orbit:            3 rate:       0.57916938
+orbit:            4 rate:       0.43363024
+orbit:            5 rate:       0.91763422
+orbit:            6 rate:       0.76134761
+orbit:            7 rate:       0.48788309
+orbit:            8 rate:       0.34615241
+
+Well, it appears that orbit 0 switched over to PC mode way too early, because
+this might be significantly piled up.  Which we will need to deal with later.
+Also, orbit "5" apparently has a large rate, but this is a short time interval
+(11807-11902s) and might be spurious.  We'll know more after doing the proper
+processing.
+
+Now, out of IDL, we need to prepare the processing.  First, let's prepare the
+WT mode data.  We will need to create region files specifying the source and
+background regions.
+
+To convert the RA/Dec into x/y for the XRT, I have a tool:
+
+$ xrt_radec2xy 
+Usage:
+  xrt_radec2xy -e evtfile -r ra -d dec [-R do_roll]
+$ xrt_radec2xy -e sw00309096000xwtw2po_cl.evt -r 287.29917 -d -27.678222 -R
+480.3350149 479.4990297 -6.0679045
+
+This now tells us the x/y position as well as the roll angle for the WT mode
+data.  We now create a source region file:
+
+$cat wtsrc.reg
+BOX(480.3350149,479.4990297,40,20,-6.0679045)
+
+Where we have made the box 40 pixels long and 20 pixels wide (the default).  We
+need to do a manual inspection of the image to place the background region.  So
+we will use the xselect tool:
+
+$ xselect
+> Enter session name >[xsel]           # hit return for default
+xsel:SUZAKU > read event sw00309096000xwtw2po_cl.evt    # read in wt event
+> Enter the Event file dir >[./output//] ./             # change file directory
+Got new mission: SWIFT
+> Reset the mission ? >[yes]                            # return for yes
+...
+xsel:SWIFT-XRT-WINDOWED > extract image                 # build an image
+xsel:SWIFT-XRT-WINDOWED > plot image                    # plot in ds9
+
+In ds9, load the region "wtsrc.reg" and it should be on top of the source.
+Then set scale-zscale to see the whole extent of the WT counts.  Drag the
+source region file to somewhere far-ish away from the source.  In this case,
+that's to the right and a bit down.  The region doesn't need to be exactly
+centered on the line (it's much wider than it needs to be).  This will be our
+background region, so save it as "wtbkg.reg".  Then quit ds9, and "exit"
+xselect.
+
+For reference, the background region I have is:
+$ cat wtbkg.reg 
+...
+box(573.33501,469.49903,40,20,353.9321)
+
+Note that the other lines about the box color, etc, that I haven't printed here
+are not relevant to the analysis.
+
+Now we need a datfile to tell the code what to process.  The format is similar
+to the rotse.dat for the bat analysis, with additional info on the position of
+the burst.  We'll need multiple dat files, so call the WT mode one rotse-wt.dat:
+
+$ cat rotse-wt.dat
+2008 04 13 02 54 19.3
+480.3350149 479.4990297
+
+62 150
+
+The first line is the same date line.  The second is the x/y position.  Then we
+have the time range for the WT data, which if you recall is from 62s to 150s
+post-burst.  You can specify multiple time ranges if necessary.
+
+Now, let's prep the PC data.  Here we'll have a circular region, and we can
+more easily automate the source/background regions:
+
+$ xrt_radec2xy -e sw00309096000xpcw2po_cl.evt -r 287.29917 -d -27.678222 
+480.3896599 479.4972410
+
+$ cat pcsrc.reg
+CIRCLE(480.3896599,479.4972410,30)
+$ cat pcbkg.reg
+CIRCLE(480.3896599,479.4972410,100)
+-CIRCLE(480.3896599,479.4972410,50)
+
+This second region specifies an annulus with outer radius 100 pixels, inner
+radius 50 pixels.  We can do a quick check of the image with xselect (follow
+the instructions above, replacing the pc mode event file)
+
+And the PC mode data file:
+
+$ cat rotse-pc.dat
+2008 04 13 02 54 19.3
+480.3896599 479.4972410
+
+150 22000
+
+The last numbers that are useful to know are the redshift (which is 2.43 for
+this burst) and the Galactic extinction, which can be calculated with the "nh"
+tool:
+$ nh
+Equinox (d/f 2000)[2000.0] 2000.0
+RA in hh mm ss.s or degrees[01 33 51.02] 287.29917
+DEC in dd mm ss.s or degrees[30 39 36.7] -27.678222
+...
+  LAB >> Weighted average nH (cm**-2)  8.71E+20
+
+So the nh=8.7e20, or in xspec units of 10^22, 0.087.
+
+In our first pass, we will do a time average spectrum.  But we will probably
+have to re-run the processing to deal with pile-up, once we have a good idea of
+the uncorrected rate, which will tell us what we need to do for pile-up
+correction.  (This is a slightly iterative procedure).
+
+The rotse tool to do the processing is:
+$ rotse_xrt_process.pl 
+Usage:
+  rotse_xrt_process.pl -e eventfile -s sourcereg -b bkgreg -d datfile [-r basedir] [-c clean] [-h help] [-g] [-A] [-B] [-C cut_radii]
+
+You should always run it with "-g" for using the default event grades and with
+-A for default ancillary response file (arf) generation.  When we're dealing
+with pile-up we'll use the cut_radii option.
+
+$ rotse_xrt_process.pl -e sw00309096000xwtw2po_cl.evt -s wtsrc.reg -b wtbkg.reg -d rotse-wt.dat -g -A
+
+This will produce a whole bunch of files.  The important ones are the .grp
+spectral files which are processed spectra (with "grouped data") ready for
+analysis.  And...
+
+$ rotse_xrt_process.pl -e sw00309096000xpcw2po_cl.evt -s pcsrc.reg -b pcbkg.reg -d rotse-pc.dat -g -A
+
+Now we can run xspec...this is the part that is a bit of an art.  I'll give a
+rough outline.  But there are questions of what to do about absorption, and
+about pile-up.  But let's first look at the WT and PC mode data separately and
+together and see if there's significant spectral evolution:
+
+$ xspec11
+XSPEC>data wt-src-00062-00150-0to2-a.grp
+XSPEC>setplot energy
+XSPEC>ignore bad                         # the .grp file marks bad data channels
+XSPEC>cpd /xw
+XSPEC>plot ldata
+XSPEC>model wabs(po)                    # absorbed power-law.  Use defaults
+XSPEC>fit
+XSPEC>plot ldata ra
+
+The chi-squared here is 1.21, but with only 48 dof that's not too bad.  The
+photon index is very soft (3.31) which I would guess is going to be much softer
+than for the later PC mode data.  Also note that nH=0.24, well in excess of the
+Galactic value.  If we:
+XSPEC>show
+Then we will see that the observed count rate is 15cps, so pile-up is not a
+problem here in WT mode.
+
+We'll come back to this analysis, but now that we have the photon index, we can
+see what the PC mode data looks like:
+XSPEC>data pc-src-00150-21460-0to12-a.grp
+XSPEC>ignore bad
+XSPEC>plot ldata
+XSPEC>model wabs(po)
+XSPEC>fit
+XSPEC>plot ldata ra
+XSPEC>show
+
+Now we see that (a) the photon index is much harder (gamma=2.1 vs. 3.3) so we
+can't do a simultaneous fit; (b) there is an outlying channel, which I wouldn't
+worry about; (c) the average count rate is not at risk of pile-up (but it might
+be at the beginning!); (d) nH=0.12, closer than from the WT fit to but still in
+excess of Galactic.
+
+The apparently varying nH leads to a conundrum.  This might be due to a problem
+spectrum due to pile-up, but this is in the wrong direction (the PC mode data
+have _more_ soft photons, so a lower nH).  Butler & Kocevski have shown
+that when you see varying nH you are fitting the wrong model.  At the early
+part of an XRT obs, and during an X-ray flare, often a Band function (grbm) is
+a better fit to the data than a power-law.  but you have to fix the nH because
+it's highly degenerate.  
+
+As it turns out, the default "grbm" xspec model is built for GRBs with E_peak ~
+100-1000 keV, and doesn't do a very good job of fitting when the peak is <10
+keV.  So I have written a modified "grbmr" (grbm rykoff) model that does a much
+better job.  In order to use this, you need to quit out of xspec and set two
+environment variables:
+
+$ setenv LMODDIR /home/erykoff/src/xspec
+$ setenv LD_LIBRARY_PATH {$LMODDIR}:$LD_LIBRARY_PATH
+$ xspec11
+XSPEC>data wt-src-00062-00150-0to2-a.grp
+XSPEC>ignore bad
+XSPEC>cpd /xw
+XSPEC>setplot energy
+XSPEC>query y
+XSPEC>model wabs(grbmr)
+1:wabs:nH>0.11                     # this is the value from the PC mode
+				   # we might refine this later...
+3:grbm:beta>-2.5                   # a good starting point
+[others default]
+XSPEC>freeze 1                     # fix the nh=0.11
+XSPEC>fit
+
+Note that we might hit a local minimum with beta=-9.  If you do "error 3"
+you'll get a lot of warnings and then it will converge at the true minimum.
+Note that tem (the peak emission) is only a lower limit (we'll see that tem <~
+1.5 keV).
+
+XSPEC>plot ldata ra
+XSPEC>error 2 3 4 6
+ Parameter   Confidence Range (     2.706)
+     2    -1.57480        -1.33682        (   -0.122113    ,     0.115864    )
+     3    -4.12288        -3.10620        (   -0.679524    ,     0.337161    )
+     4    1.000000E-02     1.47269        (   -0.519787    ,     0.942900    )
+     6    1.291388E-02    2.266679E-02    (   -4.415745E-03,     5.337160E-03)
+XSPEC>show
+...
+  Current data file : wt-src-00062-00150-0to2-a.grp
+...
+  File observed count rate     15.11    +/-0.43993     cts/s( 98.7% total
+...
+  Model:  wabs<1>( grbmr<2> )
+  Model Fit Model Component  Parameter  Unit     Value
+  par   par comp
+    1    1    1   wabs       nH       10^22     0.110000     frozen
+    2    2    2   grbmr      alpha              -1.45268     +/-  0.742220E-01
+    3    3    2   grbmr      beta               -3.44336     +/-  0.271656
+    4    4    2   grbmr      tem      keV       0.529787     +/-  -1.00000
+    5    5    2   grbmr      e_p      keV        10.0000     frozen
+    6    6    2   grbmr      norm               1.732963E-02 +/-  0.303944E-02
+  ---------------------------------------------------------------------------
+  ---------------------------------------------------------------------------
+ Chi-Squared =      52.26485     using    51 PHA bins.
+ Reduced chi-squared =      1.112018     for     47 degrees of freedom
+
+So we have the WT spectral parameters, let's also finish the PC spectral
+parameters:
+
+XSPEC>data pc-src-00150-21460-0to12-a.grp
+XSPEC>ignore bad
+XSPEC>model wabs(po)
+[use defaults]
+XSPEC>fit
+XSPEC>plot ldata ra
+XSPEC>error 1 2 3
+     1    6.649673E-02    0.200316        (   -5.808222E-02,     7.573679E-02)
+     2     1.84980         2.40146        (   -0.256830    ,     0.294827    )
+     3    7.890683E-04    1.314876E-03    (   -2.210969E-04,     3.047104E-04)
+XSPEC>show
+  File observed count rate    8.4816E-02+/-4.43141E-03 cts/s( 93.5% total
+    1    1    1   wabs       nH       10^22     0.124579     +/-  0.363080E-01
+    2    2    2   powerlaw   PhoIndex            2.10663     +/-  0.160855
+    3    3    2   powerlaw   norm               1.010165E-03 +/-  0.262250E-03
+XSPEC>quit
+
+Now we can create a fluxinfo.dat file from the pc and wt data that we can use
+to make lightcurves.  Since we are very likely iterating, I'll call this
+"fluxinfo-v1.dat".  The format is similar to the bat version above, with a
+couple key differences:
+- The time range (next to wt or pc) MUST correspond EXACTLY with the times used
+to create the spectra.  Eg, the spectral file wt-src-00062-00150-0to2-a.grp
+corresponds to a time range of 62 to 150 s. (These times are used to find the
+appropriate files).
+- The default is not to use a pegged power-law, so you do not use the "en"
+line.
+- As with the BAT spectra (but not shown for this example) we also have an
+option of using a GRBM as opposed to a powerlaw model.
+
+So our fluxinfo-v1.dat is:
+
+$ cat fluxinfo-v1.dat
+date 2008 04 13 02 54 19.3
+
+wt 62 150
+ct 15.11 0.43993
+alpha -1.45268 -1.57480 -1.33682
+beta -3.44336  -4.12288  -3.10620
+epeak 0.529787 1.000000E-02 1.47269
+e_p 10.0
+norm 1.732963E-02 1.291388E-02 2.266679E-02
+
+pc 150 21460
+ct 8.4816E-02 4.43141E-03
+gamma 2.10663 1.84980  2.40146
+norm 1.010165E-03 7.890683E-04  1.314876E-03 
+
+Now we can generate lightcurves in IDL:
+
+IDL> xrt_fixedcts_lc
+syntax-  xrt_fixedcts_lc,srcevts,datfile,outfile,starttime=starttime,stoptime=stoptime,gtifile=gtifile,plot=plot,norb=norb,enlo=enlo,enhi=enhi,ctsperbin=ctsperbin,use_avg_bk=use_avg_bk,no_background=no_background,float_ex=float_ex
+
+We'll run this twice, once for the wt data, once for the pc data.  You have to
+run it once for each entry block in the fluxinfo file.  The required parameters
+are the srcevts file: eg: wt-src-00062-00150-0to2.evt or
+pc-src-00150-21460-0to12.evt; the datfile ("fluxinfo-v1.dat"); and the output
+file (I will use "wt-lc-v1.dat" or "pc-lc-v1.dat").  The default energy range
+is 0.3-10 keV.  It defaults to 50 counts per bin, but if you have very dim
+bursts sometimes you can set this to 20.  You want to use the average
+background for the pc data, but not the wt data.  Finally, it will compute flux
+density at 2.3 keV unless you tell it to "float" in which it will use the
+energy with the optimal signal to noise.  I recommend keeping it at the fixed
+2.3 keV for simpler comparisons when the spectrum changes.
+
+So:
+
+IDL> xrt_fixedcts_lc,'wt-src-00062-00150-0to2.evt','fluxinfo-v1.dat','wt-lc-v1.dat',/plot
+
+It looks like a rapidly falling power-law, maybe with some structure at the
+beginning.  Note that the peak is well below 100 cps so we don't need to worry
+about pile-up.  But I bet we will for the PC data!  Let's take a look:
+
+IDL>
+xrt_fixedcts_lc,'pc-src-00150-21460-0to12.evt','fluxinfo-v1.dat','pc-lc-v1.dat',/use_avg_bk,/plot
+
+Note that it chained multiple orbits together, which doesn't look so good.  You
+can use the norb= parameter to tell how many independent orbits to use before
+chaining.  Using norb=5 looks better:
+
+IDL> xrt_fixedcts_lc,'pc-src-00150-21460-0to12.evt','fluxinfo-v1.dat','pc-lc-v1.dat',/use_avg_bk,/plot,norb=5
+
+All right, when we look at this we see that the peak count rate is almost 2cps.
+So we will have a significant pile-up problem, at least in the first orbit.  To
+fix pile-up, you need to excise the central core of the image. But because we
+don't have a lot of counts/coverage, this becomes a bit of a quandary.  Our
+choice is the following:
+
+- excise the core from _all_ of the orbits, so we can then analyze one
+  (stacked) spectrum.  But then we lose almost all the signal in the later
+  orbits.  And there isn't that much signal to begin with!
+- excise the core from the first orbit only, and analyze two spectra
+  (simultaneously).  The problem is that there aren't enough counts in the
+  later observation to really make a spectrum.
+
+I'm going to approach this in two parts:
+- Using the first orbit PC mode data, find the right core radius to cut out
+- Then try both of the options above.
+
+When a spectrum is piled up, more than one photon is detected at the same pixel
+in a single frame time (~3s).  What this means is that 2 photons are thought to
+be a single high energy photon.  You end up with a deficit of soft photons and
+an excess of hard photons, which will affect the spectral parameters.  So we do
+different cut-outs and then test the spectral fits.
+
+Create a new pcsrc-pu.reg file:
+$ cat pcsrc-pu.reg
+CIRCLE(480.3896599,479.4972410,30)
+-CIRCLE(480.3896599,479.4972410,XX)
+
+The XX will be filled by the code (using the -C option) to cut out an inner
+core.  We'll try cutting out 0, 2, 4, 6 pixels:
+
+And to set the time range:
+
+$ cat rotse-pcpu.dat
+2008 04 13 02 54 19.3
+480.3896599 479.4972410
+
+150 400
+
+$ rotse_xrt_process.pl -e sw00309096000xpcw2po_cl.evt -s pcsrc-pu.reg -b pcbkg.reg -d rotse-pcpu.dat -g -A -C 0,2,4,6
+
+$ xspec11
+XSPEC>data pc-src-00150-00400-0to12-c00-a.grp
+(do the usual prep, ignore bad, model wabs(po), etc)
+...
+    2    2    2   powerlaw   PhoIndex            2.07570     +/-  0.179611
+XSPEC>data pc-src-00150-00400-0to12-c02-a.grp
+...
+    2    2    2   powerlaw   PhoIndex            2.10965     +/-  0.222451
+...
+XSPEC>data pc-src-00150-00400-0to12-c04-a.grp
+...
+    2    2    2   powerlaw   PhoIndex            1.57918     +/-  0.505500
+
+In this last one, we just don't have enough counts to get a reasonable
+spectrum.  In fact, it appears that we don't have enough counts to do a good
+pile-up correction...Just to be safe, I'm going to cut out the central 2 pixels
+where the pile-up would be the worst, but this is a tough problem without a
+simple solution.  We can at least say that pile-up does not effect our spectral
+fits to our sensitivity level, but does it effect the inferred flux?
+
+So, it's clear we won't have enough counts to fit a spectrum unless we do the
+whole PC observation, and we'll do a cutout of 2 pixels:
+
+$ rotse_xrt_process.pl -e sw00309096000xpcw2po_cl.evt -s pcsrc-pu.reg -b pcbkg.reg -d rotse-pc.dat -g -A -C 2
+
+And the new fluxinfo-v2.dat file after doing the spectral fit for
+pc-src-00150-21460-0to12-c02-a.grp:
+
+$ cat fluxinfo-v2.dat
+date 2008 04 13 02 54 19.3
+
+wt 62 150
+ct 15.11 0.43993
+alpha -1.45268 -1.57480 -1.33682
+beta -3.44336  -4.12288  -3.10620
+epeak 0.529787 1.000000E-02 1.47269
+e_p 10.0
+norm 1.732963E-02 1.291388E-02 2.266679E-02
+
+pc 150 21460
+ct 7.0039E-02 4.05578E-03
+gamma 2.12835 1.84592 2.47936
+norm 1.178709E-03 9.059790E-04 1.589362E-03
+
+...and make the v2 lightcurves
+
+IDL> xrt_fixedcts_lc,'wt-src-00062-00150-0to2.evt','fluxinfo-v2.dat','wt-lc-v2.dat',/plot
+
+IDL> xrt_fixedcts_lc,'pc-src-00150-21460-0to12-c02.evt','fluxinfo-v1.dat','pc-lc-v2.dat',/use_avg_bk,/plot,norb=5
+
+Finally, now that we have the XRT photon index (2.1) we can go back to the BAT
+and finish that analysis:
+
+$ cd 00309096000/bat/analysis/    # from the parent directory...
+
+Update fluxinfo-bat.dat so that:
+
+$ cat fluxinfo-bat.dat
+date 2008 04 13 02 54 19.3
+
+bat -10 80
+ct 9.0466E-02 1.96764E-03
+xgamma 2.1
+en 15.0 150.0
+gamma 1.54606 1.48583 1.60589
+norm 57014.5 55314.0 58786.3
+
+IDL> bat_fixedcts_lc
+syntax- bat_fixedcts_lc,lcfile,datfile,outfile,plot=plot,enlo=enlo,enhi=enhi,float_ex=float_ex
+
+IDL> bat_fixedcts_lc,'burst_sn.lc','fluxinfo_bat.dat','grb080413a_bat.dat',/plot
+
+(That will do the one projected to the XRT range)
+To get one in the native 15-150 keV range:
+
+IDL> bat_fixedcts_lc,'burst_sn.lc','fluxinfo_bat.dat','grb080413a_bat15150.dat',/plot,enlo=15,enhi=150
+
+PUTTING IT TOGETHER
+
+[Will need to get the rotse data...]
+
+Make a lightcurves/ directory parallel to 00309096000/.  into this directory,
+copy the lightcurve files: pc-lc-v2.dat; wt-lc-v2.dat; grb080413a_bat*.dat.
+Also put the lightcurve.dat file output from rphot in this directory, in this
+case lightcurve_080413a.dat.
+
+I have a nice multi-wavelength plotting tool:
+
+IDL> plot_bat_xrt_opt
+syntax- plot_bat_xrt_opt,output,batfile,xrtfiles,optfile,fname=fname,fd=fd,xrange=xrange,yrange=yrange,gray=gray,startreg=startreg,z=z,starttime=starttime,color=color,title=title,nonrotsefile=nonrotsefile,specindfile=specindfile,symsize=symsize  
+
+We need to convert the rphot output into a compatible file, and this is done
+with convert_rphot_format.pro:
+
+IDL> convert_rphot_format
+syntax- convert_rphot_format,datfile,outfile,magoffset=magoffset,toffset=toffset,z=z,a_r=a_r
+
+This tool will take in the rphot datfile and output a specially formatted
+lightcurve file that has the flux, flux density, etc.  You can specify a
+magnitude offset or time offset if you know something is messed up, but I
+recommend making sure the file is correctly output from rphot in the first
+place.  You can also specify the redshift, which will do the IGM absorption
+calculation (recommended) as well as a_r to correct for Galactic extinction
+(also recommended).  To get the extinction I use NED:
+http://nedwww.ipac.caltech.edu/forms/calculator.html
+
+For this location, the extinction is relatively large, a_r=0.415, so:
+
+IDL> convert_rphot_format,'lightcurve_080413a.dat','grb080413a_rotse.dat',z=2.43,a_r=0.415
+
+Note that the IGM offset and a_r offset used are recorded in the output
+grb080413a_rotse.dat file.
+
+Now we can make the whole multiwavelength lightcurve:
+
+IDL> batfile='grb080413a_bat.dat'
+IDL> xrtfiles=['wt-lc-v2.dat','pc-lc-v2.dat']
+IDL> optfile='grb080413a_rotse.dat'
+IDL> plot_bat_xrt_opt,'x',batfile,xrtfiles,optfile,z=2.34,starttime=0.1
+
+Or with flux density instead of flux:
+
+IDL> plot_bat_xrt_opt,'x',batfile,xrtfiles,optfile,z=2.34,starttime=0.1,/fd
+
+For a postscript version, do "ps" instead of "x".  You can also specify the
+title (eg GRB080413a) and filename.  And /color for a color version.  Etc.
+
+The lightcurve looks pretty good, and it does appear that the third bat flare
+shows up in the early lightcurve.  Also, the early optical is much more slowly
+decaying than the early X-ray.  But that's for another
+

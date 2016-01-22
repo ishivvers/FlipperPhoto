@@ -1,0 +1,20 @@
+IDL> help,st[0]
+** Structure <1436028>, 33 tags, length=132, data length=132, refs=2:
+   RA              FLOAT           148.844
+   DEC             FLOAT           69.6332
+   EPOCH           FLOAT           2000.00
+   U               FLOAT           0.00000
+   B               FLOAT           14.2880
+   V               FLOAT           13.6950
+   R               FLOAT           13.4418
+   I               FLOAT           13.0345
+IDL> help,st[1]
+** Structure <1436028>, 33 tags, length=132, data length=132, refs=2:
+   RA              FLOAT           148.895
+   DEC             FLOAT           69.6486
+   EPOCH           FLOAT           2000.00
+   U               FLOAT           0.00000
+   B               FLOAT           10.6080
+   V               FLOAT           9.94100
+   R               FLOAT           9.68801
+   I               FLOAT           9.28447

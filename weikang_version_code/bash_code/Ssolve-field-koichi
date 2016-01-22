@@ -1,0 +1,104 @@
+#!/bin/sh
+workdir=./
+astrometryPATH=/usr/local/astrometry/bin/
+confFile=/usr/local/astrometry/etc/kait.cfg
+tmpfilePATH=/products/astrometry.net/tmpfiles/
+
+pixscale=1.44588
+
+pixscaleL=1.43588
+pixscaleH=1.45588
+searchradius=0.3 #in degree
+
+width=1024  #image width in pixel
+height=1024 #image height in pixel
+
+if [ $# -le 0 ]
+then
+        echo "Usage:$0 fitfilename(s)"
+        exit 0
+fi
+
+for file in $*
+do
+  echo "Working on file $file"
+
+  if [ ! -e $file ]
+  then
+          echo "File $file not exit!"
+          exit 0
+  fi
+  
+  #HEAD=`echo $file | sed 's/_c\.fits//' | sed 's/_c\.fit//' |  sed 's/\.fits//' | sed 's/\.fit//' |  sed 's/\.imh//'`
+  #Sobjfile=${HEAD}_sobj.fit
+  
+  HEAD=`echo $file | sed 's/\.fits//' | sed 's/\.fit//' |  sed 's/\.fits//' | sed 's/\.fit//' |  sed 's/\.imh//'`
+  SHEAD=`echo $file | sed 's/_c\.fits//' | sed 's/_c\.fit//' |  sed 's/\.fits//' | sed 's/\.fit//' |  sed 's/\.imh//'`
+  
+  #cmd="sethead pixscale=$pixscale $file"
+  #echo $cmd
+  #$cmd
+  RA=`gethead RA $file`
+  DEC=`gethead DEC $file`
+  cmd="$astrometryPATH/solve-field $file -3 $RA -4 $DEC -5 $searchradius --scale-units arcsecperpix -L $pixscaleL -H $pixscaleH -D $tmpfilePATH -b $confFile -O -p -y -2  -t 1 "
+  echo $cmd
+  $cmd
+  wcsfile=$tmpfilePATH/${HEAD}.wcs
+  newfile=$tmpfilePATH/${HEAD}.new
+  newfitsfile=${SHEAD}_cnew.fit
+  newwcsfile=/${SHEAD}_cwcs.fit
+  if [ -e $wcsfile ]
+  then
+    echo "Sucessfully matched for file $file"
+    cmd="mv -f $wcsfile $workdir/$newwcsfile"
+    $cmd
+    cmd="mv -f $newfile $workdir/$newfitsfile"
+    $cmd
+    cmd="rm -f $tmpfilePATH/${HEAD}*"
+    echo "Deleting tmp files ..."
+    #echo $cmd
+    $cmd
+    continue
+  else
+    echo "Failed for file $file"
+    cmd="rm -f $tmpfilePATH/${HEAD}*"
+    echo "Deleting tmp files ..."
+    #echo $cmd
+    $cmd
+    echo "Now try using sobj files as input shown below, good luck!"
+    #This is for using sobj as input in case fit image fails
+    NEWHEAD=`echo $file | sed 's/_c\.fits//' |  sed 's/_c\.fits//' | sed 's/_c\.fit//' |  sed 's/\.fits//' | sed 's/\.fit//' |  sed 's/\.imh//'`
+    Sobjfile=${NEWHEAD}_sobj.fit
+    Skyfile=${NEWHEAD}_sky.fit
+    wcsfile=$tmpfilePATH/${NEWHEAD}_sobj.wcs
+    newfitsfile=${SHEAD}_cnew.fit
+    newwcsfile=/${SHEAD}_cwcs.fit
+    ##now generate sobj file using Ssex-kait
+    cmd="Ssex_kait_wcs $file"
+    $cmd
+    if [ -e $Sobjfile ]
+    then
+      Ssobjclean $Sobjfile
+      cmd="$astrometryPATH/solve-field $Sobjfile --x-column X_IMAGE --y-column Y_IMAGE --fields 1 --width $width --height $height --sort-ascending --sort-column MAG_APER -3 $RA -4 $DEC -5 $searchradius --scale-units arcsecperpix -L $pixscaleL -H $pixscaleH -D $tmpfilePATH -b $confFile -O -p -y  -t 1 "
+      echo $cmd
+      $cmd
+      if [ -e $wcsfile ]
+      then
+        echo "Sucessfully matched for file $file"
+        cmd="/usr/local/astrometry/bin/new-wcs -i $file -w $wcsfile -o $workdir/$newfitsfile -d"
+        echo $cmd
+        $cmd
+        cmd="mv -f $wcsfile $workdir/$newwcsfile"
+        $cmd
+      fi
+    else
+      echo "sobjfile of $Sobjfile does not exist, give up...!"
+    fi
+    cmd="rm -f $tmpfilePATH/${NEWHEAD}* $workdir/$Sobjfile $workdir/$Skyfile"
+    echo "Deleting tmp files ..."
+    #echo $cmd
+    $cmd
+  fi
+
+done
+

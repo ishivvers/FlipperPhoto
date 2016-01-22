@@ -1,0 +1,72 @@
+#!/bin/sh
+workdir=./
+astrometryPATH=/usr/local/astrometry/bin/
+confFile=/usr/local/astrometry/etc/backend.cfg
+tmpfilePATH=/products/astrometry.net/tmpfiles/
+
+pixscale=0.86136
+
+pixscaleL=0.84
+pixscaleH=0.89
+searchradius=0.5 #in degree
+
+width=1024  #image width in pixel
+height=1024 #image height in pixel
+
+if [ $# -le 0 ]
+then
+        echo "Usage:$0 fitfilename(s)"
+        exit 0
+fi
+
+for file in $*
+do
+  echo "Working on file $file"
+
+  if [ ! -e $file ]
+  then
+          echo "File $file not exit!"
+          exit 0
+  fi
+  
+  #HEAD=`echo $file | sed 's/_c\.fits//' | sed 's/_c\.fit//' |  sed 's/\.fits//' | sed 's/\.fit//' |  sed 's/\.imh//'`
+  #Sobjfile=${HEAD}_sobj.fit
+  
+  HEAD=`echo $file | sed 's/\.fits//' | sed 's/\.fit//' |  sed 's/\.fits//' | sed 's/\.fit//' |  sed 's/\.imh//'`
+  SHEAD=`echo $file | sed 's/_c\.fits//' | sed 's/_c\.fit//' |  sed 's/\.fits//' | sed 's/\.fit//' |  sed 's/\.imh//'`
+  
+  #cmd="sethead pixscale=$pixscale $file"
+  #echo $cmd
+  #$cmd
+  RA=`gethead RA $file`
+  DEC=`gethead DEC $file`
+  cmd="$astrometryPATH/solve-field $file -3 $RA -4 $DEC -5 $searchradius --scale-units arcsecperpix -L $pixscaleL -H $pixscaleH -D $tmpfilePATH -b $confFile -O -p -y -2 "
+  echo $cmd
+  $cmd
+  wcsfile=$tmpfilePATH/${HEAD}.wcs
+  newfile=$tmpfilePATH/${HEAD}.new
+  newfitsfile=${SHEAD}_cnew.fit
+  newwcsfile=/${SHEAD}_cwcs.fit
+  if [ -e $wcsfile ]
+  then
+    echo "Sucessfully matched for file $file"
+    cmd="mv -f $wcsfile $workdir/$newwcsfile"
+    $cmd
+    cmd="mv -f $newfile $workdir/$newfitsfile"
+    $cmd
+  else
+    echo "Failed for file $file"
+    echo "You may try using sobj files as input shown below, good luck!"
+    #This is for using sobj as input in case fit image fails
+    NEWHEAD=`echo $file | sed 's/_c\.fits//' |  sed 's/_c\.fits//' | sed 's/_c\.fit//' |  sed 's/\.fits//' | sed 's/\.fit//' |  sed 's/\.imh//'`
+    Sobjfile=${NEWHEAD}_sobj.fit
+    cmd="$astrometryPATH/solve-field $Sobjfile --x-column X_IMAGE --y-column Y_IMAGE --fields 1 --width $width --height $height --sort-ascending --sort-column MAG_APER -3 $RA -4 $DEC -5 $searchradius --scale-units arcsecperpix -L $pixscaleL -H $pixscaleH -D $tmpfilePATH -b $confFile -O -p -y "
+    echo $cmd
+  fi
+  cmd="rm -f $tmpfilePATH/${HEAD}*"
+  echo "Deleting tmp files ..."
+  #echo $cmd
+  $cmd
+
+done
+

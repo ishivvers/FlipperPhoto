@@ -1,0 +1,2205 @@
+; ********************************************************************************
+pro rphot_adjust_zoom,event
+COMPILE_OPT IDL2
+
+;; this routine responds to user requests to change the image windowing
+
+widget_control,event.id,get_uvalue=mode
+widget_control,event.top,get_uvalue=data
+
+ims=(*(*data).images)[(*data).current_image]
+
+zoom=ims.zoom
+xw=max([10,zoom[2]-zoom[0]])
+xc=(zoom[0]+zoom[2])/2
+yw=max([10,zoom[3]-zoom[1]])
+yc=(zoom[1]+zoom[3])/2
+case mode of
+    'in2x': begin
+        minx=max([0,xc-xw/4])
+        maxx=min([ims.nx-1,xc+xw/4])
+        miny=max([0,yc-yw/4])
+        maxy=min([ims.ny-1,yc+yw/4])
+        zoom=[minx,miny,maxx,maxy]
+    end
+    'out2x': begin
+        minx=max([0,xc-xw])
+        maxx=min([ims.nx-1,xc+xw])
+        miny=max([0,yc-yw])
+        maxy=min([ims.ny-1,yc+yw])
+        zoom=[minx,miny,maxx,maxy]
+    end
+    'auto': begin
+        if (*ims.refx)[0] ne -1 then begin
+            newx=*ims.refx
+            newy=*ims.refy
+            zoom=[max([0,min(newx)-50]), $
+                  max([0,min(newy)-50]), $
+                  min([ims.nx-1,max(newx)+50]), $
+                  min([ims.nx-1,max(newy)+50])  $
+                 ]
+        endif
+    end
+    'all': begin
+        zoom=[0,0,ims.nx-1,ims.ny-1]
+    end
+    else: return
+endcase
+
+;; set the new zoom
+(*(*data).images)[(*data).current_image].zoom=zoom
+
+;; redraw the display
+rphot_display_image,data,ims.imname
+
+end
+
+;; ********************************************************************************
+pro rphot_choose_images,event
+COMPILE_OPT IDL2
+
+;; lets the user select images using a file finder. If an image was
+;; in the old list, its data is preserved.
+
+widget_control,event.top,get_uvalue=data
+file=(*(*data).images)[0].imname
+if file[0] ne '' then path=strmid(file[0],0,strpos(file[0],'/',/REVERSE_SEARCH)+1)
+imlist=dialog_pickfile(filter='*.fit.gz',/must_exist,title='Choose Images to Photometer' $
+                       ,file=file[0],path=path,/MULTIPLE_FILES)
+if imlist[0] eq '' then return
+
+rphot_fix_image_list,data,imlist
+
+end
+
+;; ********************************************************************************
+pro rphot_add_images,event
+COMPILE_OPT IDL2
+
+;; lets the user add images to the list using a file finder. A unique
+;; list of images is kept, so adding an existing image does nothing.
+
+widget_control,event.top,get_uvalue=data
+
+file=(*(*data).images)[0].imname
+if file[0] ne '' then path=strmid(file[0],0,strpos(file[0],'/',/REVERSE_SEARCH)+1)
+imnames=dialog_pickfile(filter='*.fit.gz',/must_exist,title='Choose Images to Photometer' $
+                        ,file=file[0],path=path,/MULTIPLE_FILES)
+if imnames[0] eq '' then return
+
+imlist=[(*(*data).images).imname,imnames]
+imlist=imlist[uniq(imlist,sort(imlist))]
+rphot_fix_image_list,data,imlist
+
+end
+
+;; ********************************************************************************
+pro rphot_fix_image_list,data,imlist
+COMPILE_OPT IDL2
+
+;; sets the image list to the new imlist. Data from images carried
+;; over from the old list to the new list are preserved. Creates new
+;; pointers to image data; old pointers are freed
+
+current_imname=(*(*data).images)[(*data).current_image].imname
+
+n_images=n_elements(imlist)
+images=[rphot_new_image(imlist[0])]
+for i=1,n_images-1 do begin
+    images=[images,rphot_new_image(imlist[i])]
+endfor
+
+oldnames=(*(*data).images).imname
+for i=0,n_elements(oldnames)-1 do begin
+    w=where(imlist eq oldnames[i],nw)
+    if nw gt 0 then begin
+        images[w[0]]=rphot_copy_image((*(*data).images)[i])
+    endif
+    
+    ;; free old data from memory
+    n_tags=n_tags((*(*data).images)[i])
+    for j=0,n_tags-1 do begin
+        info=size( (*(*data).images)[i].(j) )
+        type=info[n_elements(info)-2]
+        if type eq 10 then begin
+            undefine,*(*(*data).images)[i].(j)
+            ptr_free,(*(*data).images)[i].(j)
+        endif
+    endfor
+endfor
+
+;; store new data in data
+*(*data).images=images
+
+;; reset current_image
+w=where((*(*data).images).imname eq current_imname,nw)
+if nw ne 0 then (*data).current_image=w[0]
+
+;; reset refi
+w=where((*(*data).images).imname eq (*data).refname,nw)
+if nw ne 0 then (*data).refi=w[0]
+
+;; adjust "choose image" list
+if (*data).show_image_id ne 0 then begin
+    widget_control,(*data).imlist_id,set_value=(*(*data).images).imname
+    widget_control,(*data).imlist_id,set_list_select=(*data).current_image
+endif
+
+end
+
+;; ********************************************************************************
+pro rphot_choose_refim,event
+COMPILE_OPT IDL2
+
+;; lets the user select the reference image with a file finder. The
+;; reference image should be the "best" image--best seeing and
+;; deepest. It will be used to construct the sky mask for the target,
+;; and will serve as the reference system for the relative
+;; photometry. The zeropoint will be calculated using the refimage.
+
+widget_control,event.top,get_uvalue=data
+
+file=(*data).refname
+if file[0] eq '' then file=(*(*data).images[0]).imname
+if file[0] ne '' then path=strmid(file[0],0,strpos(file[0],'/',/REVERSE_SEARCH)+1)
+refname=dialog_pickfile(filter='*.fit.gz',/must_exist,title='Choose Reference Image',file=file[0],path=path)
+if refname eq '' then return
+
+;; add refimage to image list
+w=where((*(*data).images).imname eq refname,nw)
+if nw eq 0 then begin
+    imlist=[(*(*data).images).imname,refname]
+    imlist=imlist[uniq(imlist,sort(imlist))]
+    rphot_fix_image_list,data,imlist
+    w=where(imlist eq refname,nw)
+endif
+(*data).refi=w[0]
+(*data).refname=refname
+
+;; wipe all data using old refsys
+for i=0,n_elements( (*(*data).images).imname)-1 do begin
+    ;;(*(*data).images)[i].zoom=[0,0,0,0]
+    *(*(*data).images)[i].refx=-1.0
+    *(*(*data).images)[i].refy=-1.0
+    *(*(*data).images)[i].refra=-1.0
+    *(*(*data).images)[i].refdec=-1.0
+    *(*(*data).images)[i].refcounts=!values.d_nan
+    *(*(*data).images)[i].refecounts=!values.d_nan
+    (*(*data).images)[i].ratio=1.0
+    (*(*data).images)[i].eratio=0.0
+    *(*(*data).images)[i].kx=-1.0
+    *(*(*data).images)[i].ky=-1.0
+    (*(*data).images)[i].x=-1.0
+    (*(*data).images)[i].y=-1.0
+    (*(*data).images)[i].ra=-1.0
+    (*(*data).images)[i].dec=-1.0
+    (*(*data).images)[i].counts=!values.d_nan
+    (*(*data).images)[i].ecounts=!values.d_nan
+    *(*(*data).images)[i].mask=-1
+endfor
+
+end
+
+;; ********************************************************************************
+pro rphot_choose_object,event
+COMPILE_OPT IDL2
+
+;; lets the user select the target and reference stars on the
+;; reference image. Really a wrapper for rphot_select_objects
+
+widget_control,event.top,get_uvalue=data
+widget_control,event.id,get_uvalue=just_one
+if (*data).select_objects_id ne 0 then begin
+    widget_control,(*data).select_objects_id,/show
+    return
+endif
+
+refname=(*data).refname
+;; ##### the refim must be loaded first. Warn user!!! #####
+if refname eq '' then rphot_choose_refim,event
+
+;; display the image
+rphot_display_image,data,refname,title='REFIM: '+refname
+
+;; launch select_objects widget
+rphot_select_objects,data,ims,just_one=just_one
+
+end
+
+;; ********************************************************************************
+pro rphot_get_calib,event
+COMPILE_OPT IDL2
+
+;; lets the user select a file with the field calibration data (ra,
+;; dec, mag, and emag of stars in the file) using a file finder. The
+;; stars in the calibration file are then matched to the refstars;
+;; non-matching stars are dropped. A zeropoint on the refimage is
+;; calculated for each matching star, and the MEDIAN zeropoint is
+;; recorded to calibrate the refimage (and hence, all the images).
+;;
+;; example calib file:
+;;
+;;R
+;;        RA         DEC    Rmag   emag
+;;327.264770  -27.697215  16.495  0.022
+;;
+;; first line just lists the filter
+;; second line names the columns (skipped)
+;; third and beyond lists values for each star.
+
+widget_control,event.top,get_uvalue=data
+file=(*(*data).images[0]).imname
+path=strmid(file[0],0,strpos(file[0],'/',/REVERSE_SEARCH)+1)
+calib=dialog_pickfile(filter='*.dat',/must_exist,title='Choose Calibration File',path=path)
+if calib eq '' then return
+refims=(*(*data).images)[(*data).refi]
+
+;; read the calib file
+readcol,calib,ra,dec,mag,emag,format='(d,d,d,d)',/silent
+
+;; get the filter
+openr,lun,calib,/get_lun
+filter=''
+readf,lun,filter
+close,lun
+free_lun,lun
+
+;; set calib data
+(*data).calib.filter=filter
+*(*data).calib.ra=ra
+*(*data).calib.dec=dec
+*(*data).calib.mag=mag
+*(*data).calib.emag=emag
+*(*data).calib.use=intarr(n_elements(mag))
+*(*data).calib.refmag=dblarr(n_elements(*refims.refra))
+
+;; match calibs to refstars
+close_match_radec,*refims.refra,*refims.refdec,ra,dec,wref,wcal,0.0009d,1.0,missed
+if wcal[0] eq -1 then begin
+    for i=0,n_elements(ra)-1 do begin
+        dist=min(sqrt((*refims.refra-ra[i])^2.0+(*refims.refdec-dec[i])^2.0),minind)
+        if dist lt 0.0009 then begin
+            wcal=[wcal,i]
+            wref=[wref,minind]
+        endif
+    endfor
+    if n_elements(wcal) gt 1 then begin
+        wcal=wcal[1:*]
+        wref=wref[1:*]
+    endif else begin
+        ;; oh well
+        print,'RPHOT: Could not calibrate !!!!!'
+        return
+    endelse
+endif
+(*(*data).calib.use)[wcal]=1
+(*(*data).calib.refmag)[wref]=mag[wcal]
+
+;; calculate zeropoint
+zps=mag[wcal]+2.5*alog10((*refims.refcounts)[wref])
+(*data).zp=median(zps)
+
+;; redraw
+rphot_display_image,data
+rphot_display_plot,data
+
+end
+
+;; ********************************************************************************
+pro rphot_get_psf,data,ims
+COMPILE_OPT IDL2
+
+;; calculates the PSF on an image by stacking all the refstars
+;; (shifted to the nearest 1/grow pixels). Fits a 2D gaussian to
+;; determine the sigma->FWHM. Sets aper radius to 1.7*FWHM.
+
+n=(*data).psf_npix
+grow=(*data).psf_grow
+psf=fltarr(n*grow,n*grow)
+npsf=intarr(n*grow,n*grow)
+for i=0,n_elements(*ims.refx)-1 do begin
+    minx=long((*ims.refx)[i]-n/2.0)
+    maxx=minx+n-1
+    miny=long((*ims.refy)[i]-n/2.0)
+    maxy=miny+n-1
+    
+    if minx lt 0 or miny lt 0 or maxx ge ims.nx or maxy ge ims.ny then continue
+
+    imclip=(*ims.image)[minx:maxx,miny:maxy]
+    
+    ;; subtract sky
+    lsky=(get_local_sky(imclip,n/2.0,n/2.0,n/4.0,n/2.0-1.1,std=std,rej=rej))[0]
+    imclip=imclip-lsky
+    if rej[0] ne -1 then imclip[rej]=0
+    
+    ;; dilate the new psf
+    newpsf=rebin(imclip,grow*n,grow*n)
+    temp=rebin(imclip,grow*n,grow*n,/sample) ;; ##### should we do bi-lin interpolation?
+    
+    ;; center the new psf
+    xoff=round(((*ims.refx)[i]-minx-n/2.0)*grow)
+    yoff=round(((*ims.refy)[i]-miny-n/2.0)*grow)
+    newpsf=shift(newpsf,-xoff,-yoff) ; edge values get wrapped, but oh well...
+    
+    w=where(temp ne 0,nw)
+    psf[w]=psf[w]+newpsf[w]
+    npsf[w]=npsf[w]+1
+endfor
+psf=psf/npsf
+*ims.psf=psf
+
+;; get the aper radius
+yfit=gauss2dfit(psf,a)
+;;ims.rad=1.7*max(a[2:3])/grow                    ; 1.7*sigma radius (optimal S/N)
+ims.rad=2*sqrt(2*alog(2))*max(a[2:3])/grow        ; 1*FWHM radius
+;;ims.rad=1.7*2*sqrt(2*alog(2))*max(a[2:3])/grow  ; 1.7*FWHM radius
+
+;; record
+(*(*data).images)[(*data).current_image]=ims
+
+end
+
+;; ********************************************************************************
+pro rphot_display_image,data,imname,title=title
+COMPILE_OPT IDL2
+
+;; Does much more than just display an image. Loads images as
+;; necessary, finds refstars, finds the target, calls photometry
+;; routines, calculates ref/new ratio, etc. This is where everything
+;; actually gets done.
+
+if not keyword_set(imname) then imname=(*(*data).images)[(*data).current_image].imname
+if imname eq '' then return
+if keyword_set(title) eq 0 then title=imname
+
+w=where((*(*data).images).imname eq imname,nw)
+if nw eq 0 then begin
+    print,imname,format='(a,": image not available")'
+    return
+endif
+i=w[0]
+ims=(*(*data).images)[i]
+(*data).current_image=i
+if (*data).show_image_id ne 0 then widget_control,(*data).imlist_id,set_list_select=(*data).current_image
+
+;; set the plotting window
+widget_control,(*data).image_id,get_value=win_id
+wset,win_id
+
+now_showing=0
+if not keyword_set(*ims.image) then begin
+    ;; free up memory if needed
+    n_maxload=5
+    w=where((*(*data).images).timestamp ne 0,nw)
+    if nw ge n_maxload then begin
+        w2=sort((*(*data).images)[w].timestamp)
+        *(*(*data).images)[w[w2[0]]].image=0
+        (*(*data).images)[w[w2[0]]].timestamp=0
+    endif
+
+    ;; load the image
+    ;;*ims.image=readfits(imname)
+    *ims.image=mrdfits(imname)
+    ims.timestamp=systime(1)
+    size=size(*ims.image)
+    ims.nx=size[1]
+    ims.ny=size[2]
+    ims.clip=[0,0,0,0]
+
+    ;; get the burst time from the refimage
+    if ims.imname eq (*(*data).images)[(*data).refi].imname then begin
+        head=headfits(imname)
+        trig_sod=sxpar(head,'TRIG_T')
+        trig_jd=sxpar(head,'TRIG_TJD')
+        (*data).mjd=trig_jd+trig_sod/24/60/60.0+40000.0
+    endif
+
+    ;; get the sky value
+    if(ims.skymode eq 0) then begin
+        sky,*ims.image,skymode,skysig
+        ims.skymode=skymode
+        ims.skysig=skysig
+    endif
+
+    ;; display the image
+    if(total(ims.zoom) eq 0) then ims.zoom=[0,0,ims.nx-1,ims.ny-1]
+    zoom=ims.zoom
+    if(ims.span ne 0) then span=ims.span $
+    else span=8*ims.skysig
+    if(ims.zero ne 0) then zero=ims.zero $
+    else zero=ims.skymode-1.5*ims.skysig
+    frame,(*ims.image)[zoom[0]:zoom[2],zoom[1]:zoom[3]],offset=zoom[0:1],title=title,span=span,zero=zero
+    ims.span=span
+    ims.zero=zero
+
+    ;; locate objects
+    if((*ims.objx)[0] eq -1) then begin
+        ;; load the cobj file
+        pho=mrdfits(ims.cobjfile,1)
+        w=where(pho.x lt 0 or pho.x ge ims.nx or pho.y lt 0 or pho.y ge ims.ny,nw,comp=wgood,ncomp=ngood)
+        if nw gt 0 then begin
+            print,"print cobjfile has out of bounds objects!!!"
+            if ngood gt 0 then pho=pho[wgood] else undefine,pho
+        endif
+        if keyword_set(pho) then begin
+            *ims.objra=pho.ra
+            *ims.objdec=pho.dec
+            *ims.objx=pho.x
+            *ims.objy=pho.y
+        endif else begin
+            print,'RPHOT error: Could not locate cobj file'
+        endelse
+    endif
+
+    ;; get the exp date and time
+    if ims.mjd eq 0 then begin
+        ;; read cobjfile
+        s=mrdfits(ims.cobjfile,2)
+        if keyword_set(s) then begin
+            ims.mjd=s.mjd
+            ims.exp=s.efftime
+        endif else begin
+            print,'RPHOT error: Could not locate cobj file'
+        endelse
+    endif
+
+    ;; record
+    (*(*data).images)[(*data).current_image]=ims
+
+    now_showing=1
+endif else begin
+    (*(*data).images)[(*data).current_image].timestamp=systime(1)
+endelse
+
+if ims.imname ne (*(*data).images)[(*data).refi].imname and (*(*(*data).images)[(*data).refi].refx)[0] ne -1 then begin
+    refims=(*(*data).images)[(*data).refi]
+
+    ;; locate refstars
+    if((*ims.refx)[0] eq -1) then begin
+        close_match_radec,*refims.refra,*refims.refdec,*ims.objra,*ims.objdec,refi,newi,0.0009d,1.0,missed
+
+        if n_elements(newi) gt 0 then begin
+            *ims.refx=dblarr(n_elements(*refims.refra))
+            *ims.refy=dblarr(n_elements(*refims.refra))
+            *ims.refra=dblarr(n_elements(*refims.refra))
+            *ims.refdec=dblarr(n_elements(*refims.refra))
+            
+            (*ims.refx)[refi]=(*ims.objx)[newi]
+            (*ims.refy)[refi]=(*ims.objy)[newi]
+            (*ims.refra)[refi]=(*ims.objra)[newi]
+            (*ims.refdec)[refi]=(*ims.objdec)[newi]
+            
+            ;; get transform from refsys to current image (new)
+            if n_elements(*ims.kx) eq 1 then begin
+                refx=(*refims.refx)[refi]
+                refy=(*refims.refy)[refi]
+                newx=(*ims.objx)[newi]
+                newy=(*ims.objy)[newi]
+                degree=ceil(min([sqrt(n_elements(refx))-1,2]))
+                if degree lt 1 then begin
+                    print,'RPHOT: not enough matching refstars! need at least 4'
+                endif else begin
+                    ;; calculate kx & ky
+                    polywarp,newx,newy,refx,refy,degree,kx,ky
+                    
+                    ;; make sure the refstars were properly matched
+                    problems=1
+                    keepers=refi
+                    while total(problems) ne 0 do begin
+                        ;; locate problems
+                        problems=lonarr(n_elements(keepers))
+                        for i=0,n_elements(keepers)-1 do begin
+                            refx=(*refims.refx)[keepers[i]]
+                            refy=(*refims.refy)[keepers[i]]
+                            kmap,refx,refy,x,y,kx,ky
+                            dist=sqrt( ((*ims.refx)[keepers[i]]-x)^2.0 + ((*ims.refy)[keepers[i]]-y)^2.0 )
+                            ;;print,'RPHOT: refstar '+strtrim(i,2)+' off by ',strtrim(dist[0],2)+' pixels'
+                            if dist[0] gt 1.0 then begin
+                                problems[i]=dist
+                            endif
+                        endfor
+                        
+                        if total(problems) ne 0 then begin
+                            ;; drop worst ofender
+                            worst=max(problems,wmax)
+                            print,'RPHOT: dropping refstar '+strtrim(keepers[wmax],2)
+                            if missed[0] eq -1 then missed=wmax $
+                            else missed=[missed,keepers[wmax]]
+                            
+                            ;; keep the rest
+                            w=where(problems ne worst)
+                            keepers=keepers[w]
+                            refx=(*refims.refx)[keepers]
+                            refy=(*refims.refy)[keepers]
+                            newx=(*ims.refx)[keepers]
+                            newy=(*ims.refy)[keepers]
+                            
+                            ;; recalculate kx & ky
+                            polywarp,newx,newy,refx,refy,degree,kx,ky
+                        endif
+                    endwhile
+                    
+                    *ims.kx=kx
+                    *ims.ky=ky    
+                endelse
+            endif
+
+            ;; locate missing refstars
+            if missed[0] ne -1 and n_elements(*ims.kx) ne 1 then begin
+                for i=0,n_elements(missed)-1 do begin
+                    ;;print,'looking for refstar '+strtrim(missed[i],2)
+                    refx=(*refims.refx)[missed[i]]
+                    refy=(*refims.refy)[missed[i]]
+                    kmap,refx,refy,x,y,*ims.kx,*ims.ky
+                    
+                    ra=(*refims.objra)[missed[i]]
+                    dec=(*refims.objdec)[missed[i]]
+                    
+                    ;; add this star to the ref list
+                    (*ims.refx)[missed[i]]=x
+                    (*ims.refy)[missed[i]]=y
+                    (*ims.refra)[missed[i]]=ra
+                    (*ims.refdec)[missed[i]]=dec
+                endfor
+            endif
+
+            ;; get the psf
+            rphot_get_psf,data,ims
+            
+            ;; do photometry on refstars
+            rphot_get_object_counts,data,*ims.refx,*ims.refy,flux,eflux
+            *ims.refcounts=flux
+            *ims.refecounts=eflux
+            
+            ;; get the ratio ref/new counts
+            ratios=flux/(*refims.refcounts)
+            eratios=sqrt( (eflux/(*refims.refcounts))^2.0 + ((*refims.refecounts)*flux/(*refims.refcounts)^2.0)^2.0 )
+            ratio=wtaverage(ratios,eratios)
+            ims.ratio=ratio[0]
+            ims.eratio=ratio[1]
+            
+            ;; record
+            (*(*data).images)[(*data).current_image]=ims
+        endif
+    endif
+
+    ;; locate target
+    if ims.x eq -1 and n_elements(*ims.kx) ne 1 then begin
+        refx=(*(*data).images)[(*data).refi].x
+        refy=(*(*data).images)[(*data).refi].y
+        kmap,refx,refy,x,y,*ims.kx,*ims.ky
+        ims.x=x
+        ims.y=y
+        ;; record
+        (*(*data).images)[(*data).current_image]=ims
+        
+        ;; do photometry on target
+        rphot_get_object_counts,data,x,y,flux,eflux,lsky=lsky,skynoise=skynoise
+        ims.counts=flux
+        ims.ecounts=eflux
+        ims.sky=lsky
+        ims.skynoise=skynoise
+
+        ;; record
+        (*(*data).images)[(*data).current_image]=ims
+    endif
+
+    ;; ##### locate calibs #####
+
+
+endif
+
+;; auto-zoom to working area
+zoom=ims.zoom
+if (now_showing eq 1 and total(zoom eq [0,0,ims.nx-1,ims.ny-1]) eq 4 and (*ims.refx)[0] ne -1) or total(zoom) eq 0 then begin
+    newx=*ims.refx
+    newy=*ims.refy
+    zoom=[max([0,min(newx)-50]), $
+          max([0,min(newy)-50]), $
+          min([ims.nx-1,max(newx)+50]), $
+          min([ims.ny-1,max(newy)+50]) $
+         ]
+    (*(*data).images)[(*data).current_image].zoom=long(zoom)
+    now_showing=0
+endif
+
+;; adjust the widgets
+rphot_set_zero,data,zero=ims.zero
+rphot_set_span,data,span=ims.span
+
+;; display
+if now_showing eq 0 then begin
+    frame,(*ims.image)[zoom[0]:zoom[2],zoom[1]:zoom[3]],offset=zoom[0:1],title=title,span=ims.span,zero=ims.zero
+endif
+rphot_show_objects,data
+
+;; store the plotting var clip region
+(*data).image_clip=!p.clip
+
+end
+
+;; ********************************************************************************
+pro rphot_show_objects,data
+COMPILE_OPT IDL2
+
+;; draws circles/hexagons around objects, refstars, the target, and
+;; objects in the calibration list.
+
+col=getcolor(/load)
+
+ims=(*(*data).images)[(*data).current_image]
+if (*data).show_objects eq 1 then begin
+    ;; draw red circles around all detected objects
+    w=where(*ims.objx gt ims.zoom[0] and *ims.objx lt ims.zoom[2] $
+            and *ims.objy gt ims.zoom[1] and *ims.objy lt ims.zoom[3],nw)
+    if nw gt 0 then boxdata,2*ims.rad,(*ims.objx)[w],(*ims.objy)[w],col.red,/circ
+endif
+if (*data).show_refstars eq 1 then begin
+    ;; draw yellow circle around ref objects
+    if total(*ims.refx) gt -1 then begin
+        w=where(*ims.refx gt ims.zoom[0] and *ims.refx lt ims.zoom[2] $
+                and *ims.refy gt ims.zoom[1] and *ims.refy lt ims.zoom[3],nw)
+        if nw gt 0 then begin
+            boxdata,2*ims.rad,(*ims.refx)[w],(*ims.refy)[w],col.yellow,/circ
+            xyouts,(*ims.refx)[w],(*ims.refy+ims.rad+1)[w],(strtrim(indgen(n_elements(*ims.refx)),2))[w]
+        endif
+    endif
+endif
+if (*data).show_target eq 1 then begin
+    ;; draw green circle around target object
+    if ims.x+ims.y gt -1 then begin
+        boxdata,2*ims.rad,ims.x,ims.y,col.green,/circ,thick=2
+    endif
+endif
+if (*data).show_calibs eq 1 then begin
+    ;; draw purple hexagon around calib stars
+    if (*(*data).calib.use)[0] ne -1 then begin
+        ;; convert ra/dec values to x,y position on refimage
+        rphot_rd2xy,ims.cobjfile,*(*data).calib.ra,*(*data).calib.dec,x,y
+        w=where(x gt ims.zoom[0] and x lt ims.zoom[2] and y gt ims.zoom[1] and y lt ims.zoom[3] $
+                and *(*data).calib.use eq 1,nw)
+        if nw gt 0 then boxdata,2*ims.rad,x[w],y[w],col.magenta,/hex
+    endif
+endif
+
+end
+
+;; ********************************************************************************
+pro rphot_display_closeup,data,x,y,nodata=nodata
+COMPILE_OPT IDL2
+
+;; shows a 3.0*ims.rad+1 square view of the image centered at
+;; x,y. Also shows the sky mask, and marks objects in the field. Can
+;; optionally show the psf, or the psf-subtracted (kinda) closeup.
+
+col=getcolor(/load)
+
+;; set the plotting window
+widget_control,(*data).closeup_id,get_value=win_id
+wset,win_id
+
+ims=(*(*data).images)[(*data).current_image]
+if n_elements(*ims.image) eq 0 then rphot_display_image,data
+n=3.0*ims.rad+1
+if n_elements(x) eq 0 then begin
+    if (*data).plot_mode eq 'refstar' then begin
+        x=(*ims.refx)[(*data).refstari]
+        y=(*ims.refy)[(*data).refstari]
+    endif else begin
+        x=ims.x
+        y=ims.y
+    endelse
+endif
+minx=long(max([0,x-n]))
+maxx=long(min([ims.nx-1,x+n]))
+miny=long(max([0,y-n]))
+maxy=long(min([ims.ny-1,y+n]))
+
+if (*data).closeup_mode eq 'image' then begin
+    closeup=(*ims.image)[minx:maxx,miny:maxy]
+    frame,closeup,offset=[minx,miny],span=ims.span,zero=ims.zero,/noframe,/full
+    if keyword_set(nodata) then return
+    rphot_show_objects,data
+    
+    ;; show the sky mask
+    if x eq ims.x and y eq ims.y then begin
+        inmask=*ims.mask
+        noreject=1
+    endif
+    lsky=(get_local_sky(*ims.image,x[0],y[0],ims.rad+1.0,3.0*ims.rad $
+                        ,annulus=annulus,std=std,rej=rej,inmask=inmask,noreject=noreject))[0]
+    my=annulus/ims.nx
+    mx=annulus mod ims.nx
+    device, get_graphics = old, set_graphics = 6 ;Set xor
+    boxdata,1,mx,my,col.cyan
+    device, set_graphics = old
+
+    ;; show rejected pixels
+    if keyword_set(inmask) then rej=[rej,inmask]
+    my=rej/ims.nx
+    mx=rej mod ims.nx
+    ;;device, get_graphics = old, set_graphics = 3 ;Set xor
+    ;;boxdata,1,mx,my,col.blue
+    device, set_graphics = 11 ;Set xor
+    boxdata,1,mx,my,col.blue
+    boxdata,1,mx,my,col.blue
+    device, set_graphics = old
+endif else if (*data).closeup_mode eq 'fitpsf' then begin
+    ;; grow the image clip
+    n=(*data).psf_npix
+    grow=(*data).psf_grow
+    minx=long(x-n/2.0)
+    maxx=minx+n-1
+    miny=long(y-n/2.0)
+    maxy=miny+n-1
+    imclip=rebin((*ims.image)[minx:maxx,miny:maxy],grow*n,grow*n)
+
+    yfit=gauss2dfit(imclip,imclipa)
+    yfit=gauss2dfit(*ims.psf,psfa)
+
+    psf=(*ims.psf)*imclipa[1]/psfa[1]+imclip[0]
+    ;;psf=shift(psf,imclipa[4]-psfa[4],imclipa[5]-psfa[5])
+    xoff=round((x-minx-n/2.0)*grow)
+    yoff=round((y-miny-n/2.0)*grow)
+    psf=shift(psf,xoff,yoff)
+
+    frame,imclip-psf,/full,/noframe
+    contour,imclip-psf,nlevels=10,color=col.magenta,/overplot
+;;stop
+endif else begin
+    ;; show the psf
+    frame,*ims.psf,/full,/noframe
+    n=n_elements((*ims.psf)[0,*])
+    boxdata,2*ims.rad*(*data).psf_grow,n/2.0,n/2.0,col.cyan,/circ
+    contour,*ims.psf,nlevels=15,color=col.magenta,/overplot
+    plots,n/2.0,n/2.0,psym=7,color=col.cyan
+
+    yfit=gauss2dfit(*ims.psf,a)
+    plots,a[4],a[5],psym=7,color=col.magenta
+endelse
+
+;; store the plotting var clip region
+(*data).closeup_clip=!p.clip
+
+end
+
+;; ********************************************************************************
+pro rphot_display_plot,data,x=x,y=y,save_data=save_data,save_plot=save_plot
+COMPILE_OPT IDL2
+
+;; plots target/refstar light curve. Can optionally sum data points.
+
+if keyword_set(save_plot) then begin
+    set_plot,'ps'
+    device,/landscape,filename=save_plot,bits_per_pixel=8,/color
+endif else begin
+    ;; set the plotting window
+    widget_control,(*data).plot_id,get_value=win_id
+    wset,win_id
+endelse
+
+;; load the colors
+col=getcolor(/load)
+
+;; get the X values
+n=n_elements((*(*data).images))
+if (*data).plot_xmode eq 'mjd' then begin
+    x=(*(*data).images).mjd
+    ex=(*(*data).images).mjd+(*(*data).images).exp/3600./24.
+    xtitle='MJD'
+endif else if (*data).plot_xmode eq 'tburst' then begin
+    x=(*(*data).images).mjd-(*data).mjd
+    ex=x+(*(*data).images).exp/3600./24.
+    maxx=max(x)
+    if maxx gt 1.0 then begin
+        xtitle='tburst (days)'
+    endif else if maxx*24.0 gt 1.0 then begin
+        xtitle='tburst (hours)'
+        x=x*24.0
+        ex=ex*24.0
+    endif else if maxx*24.0*60.0 gt 1.0 then begin
+        xtitle='tburst (minutes)'
+        x=x*24.0*60.0
+        ex=ex*24.0*60.0
+    endif else begin
+        xtitle='tburst (seconds)'
+        x=x*24.0*3600.0
+        ex=ex*24.0*3600.0
+    endelse
+endif else begin
+    x=indgen(n)
+    ex=x
+    xtitle='image index'
+endelse
+
+;; get the Y values
+r=(*(*data).images).ratio
+dr=(*(*data).images).eratio
+if (*data).plot_mode eq 'target' then begin
+    ;; plot target counts
+    title=(*data).name+' Light Curve'
+
+    norm=abs((*(*data).images)[(*data).refi].counts)
+    f=(*(*data).images).counts
+    df=(*(*data).images).ecounts
+    y=f/r/norm
+    ey=sqrt( (df/r/norm)^2.0 + (dr*f/r^2.0/norm)^2.0 )
+endif else if (*data).plot_mode eq 'refstar' then begin
+    ;; plot refstar counts
+    j=(*data).refstari
+    if (*(*data).calib.use)[0] ne -1 then cmag=(*(*data).calib.refmag)[j] else cmag=0
+    title='Refstar '+strtrim(j,2)+' Light Curve'
+    if cmag ne 0 then title=title+' ('+(*data).calib.filter+'='+nicetext(cmag,2)+')'
+    norm=abs((*(*(*data).images)[(*data).refi].refcounts)[j])
+    y=dblarr(n)+!values.d_nan
+    ey=dblarr(n)+!values.d_nan
+    for i=0,n-1 do begin
+        if n_elements((*(*(*data).images)[i].refcounts)) gt j then begin
+            y[i]=(*(*(*data).images)[i].refcounts)[j]/(*(*data).images)[i].ratio / norm
+            ey[i]=sqrt(( (*(*(*data).images)[i].refecounts)[j] / (*(*data).images)[i].ratio)^2.0 ) / norm
+        endif
+    endfor
+endif
+sky=(*(*data).images).sky/r/norm
+skynoise=(*(*data).images).skynoise/r/norm
+
+;; sum data points?
+if (*data).dosum eq 1 then begin
+    suminds=(*(*data).images).sumind
+
+    ;; sum (skips inds less than 0)
+    w=where(suminds ge 0,nw)
+    temp=suminds[w]
+    unq_sumis=temp[uniq(temp,sort(temp))]
+
+    nsums=n_elements(unq_sumis)
+    newx=dblarr(nsums)
+    newex=dblarr(nsums)
+    newy=dblarr(nsums)+!values.d_nan
+    newey=dblarr(nsums)+!values.d_nan
+    newskynoise=dblarr(nsums)+!values.d_nan
+
+    for i=0,nsums-1 do begin
+        w=where(suminds eq unq_sumis[i] and finite(y) eq 1,nw)
+        if nw gt 0 then begin
+            ;; force chisq <= 1 (grow errorbars only)
+            blah=wtaverage(y[w],ey[w])
+            chisq=total((blah[0]-y[w])^2.0/(ey[w])^2.0)/(nw-1)
+            cheat=1.00
+            while nw gt 1 and chisq gt 1.0 do begin
+                cheat=cheat+0.001
+                blah=wtaverage(y[w],cheat*ey[w])
+                chisq=total((blah[0]-y[w])^2.0/(cheat*ey[w])^2.0)/(nw-1)
+            endwhile
+
+            ;; get the average x,y values
+            newx[i]=min(x[w])
+            newex[i]=max(ex[w])
+            blah=wtaverage(y[w],cheat*ey[w])
+            newy[i]=blah[0]
+            newey[i]=blah[1]
+
+            blah=wtaverage(sky[w],skynoise[w])
+            newskynoise[i]=blah[1]
+        endif
+    endfor
+    x=newx
+    ex=newex
+    y=newy
+    ey=newey
+    skynoise=newskynoise
+endif else begin
+    ;; skip where sumind=-1
+    w=where((*(*data).images).sumind eq -1,nw)
+endelse
+
+;; change x, ex to mean time, halfwidth
+x=(x+ex)/2.0
+ex=ex-x
+xrange=[min(x-ex),max(x+ex)]
+
+;; plot it
+w=where(finite(y) eq 1 and (*(*data).images).sumind ne -1,nw)
+if nw gt 0 then begin
+    if (*data).plot_ymode eq 'mag' then begin
+        ;; convert flux to magnitudes
+        ;; add zeropoint if calibration available
+        mag=dblarr(n)
+        memag=dblarr(n)
+        pemag=dblarr(n)
+        mag[*]=!values.d_nan
+        memag[*]=!values.d_nan
+        pemag[*]=!values.d_nan
+        if (*data).zp ne 0 then begin
+            ytitle='ROTSE Mag'
+            zp=(*data).zp-2.5*alog10(norm)
+        endif else begin
+            ytitle='Relative Mag'
+            zp=0
+        endelse
+        w2=where(y gt 0,nw2)
+        if nw2 gt 0 then mag[w2]=-2.5*alog10(y[w2])+zp
+        w2=where(y-ey gt 0,nw2)
+        if nw2 gt 0 then pemag[w2]=-2.5*alog10(y[w2]-ey[w2])+zp
+        w2=where(y+ey gt 0,nw2)
+        if nw2 gt 0 then memag[w2]=-2.5*alog10(y[w2]+ey[w2])+zp
+
+        ;; get plotting range
+        w2=where(finite(memag[w]) eq 1 and finite(pemag[w]) eq 1,nw2)
+        w3=where(finite(memag[w]) eq 1 and finite(pemag[w]) eq 0,nw3)
+        w4=where(finite(memag[w]) eq 1 and finite(mag[w]) eq 1,nw4)
+        w5=where(finite(memag[w]) eq 1 and finite(mag[w]) eq 0,nw5)
+        if nw2 gt 0 then begin
+            minmag=min(memag[w[w2]])
+            maxmag=max(pemag[w[w2]])
+            yrange=[maxmag,minmag]
+        endif else begin
+            wok=where(finite(memag[w]) and finite(mag[w]) eq 1,nwok)
+            if nwok gt 0 then begin
+                minmag=min(memag[w[wok]])
+                maxmag=max(mag[w[wok]])
+                yrange=[maxmag,minmag]
+            endif
+        endelse
+
+        ;; plot
+        plot,x[w],mag[w],psym=4,title=title,xtitle=xtitle,ytitle=ytitle,xstyle=3,ystyle=3 $
+            ,xlog=(*data).plot_xlog,yrange=yrange,xrange=xrange
+        oploterror,x[w],mag[w],ex[w],intarr(nw),ps=4
+
+        ;; mark S/N > 3 points in bold
+        wreal=where(y[w]/ey[w] gt 3.0,nw)
+        if nw gt 0 then oplot,x[w[wreal]],mag[w[wreal]],psym=4,thick=2
+
+        ;; plot mag error bars
+        if nw2 gt 0 then errplot,x[w[w2]],memag[w[w2]],pemag[w[w2]]
+        if nw4 gt 0 then oploterror,x[w[w4]],mag[w[w4]],mag[w[w4]]-memag[w[w4]],/lobar,ps=4
+        xlen=!d.x_vsize/100.0 
+        ylen=xlen
+        for i=0,nw3-1 do begin
+            devc=convert_coord(x[w[w3[i]]],mag[w[w3[i]]],/to_device)
+            plots,[devc[0],devc[0]],[devc[1],devc[1]-3*ylen],/device,noclip=0
+            plots,[devc[0]-xlen,devc[0]],[devc[1]+ylen,devc[1]]-3*ylen,/device,noclip=0
+            plots,[devc[0]+xlen,devc[0]],[devc[1]+ylen,devc[1]]-3*ylen,/device,noclip=0
+        endfor
+
+        ;; show limiting magnitudes
+        wsort=sort(x[w])
+        oplot,x[w[wsort]],-2.5*alog10(3*skynoise[w[wsort]])+zp,ps=10,color=col.orange,linestyle=0
+
+        ;; plot calib magnitudes and average magnitude
+        avy=wtaverage(y[w],ey[w])
+        avmag=-2.5*alog10(avy[0])+zp
+        xrange=!x.crange
+        if (*data).plot_xlog eq 1 then xrange=10.0^xrange
+        oplot,xrange,[avmag,avmag],color=col.cyan
+        if (*data).plot_mode eq 'refstar' then begin
+            oplot,xrange,[cmag,cmag],color=col.red
+        endif
+
+        ;; save data?
+        if keyword_set(save_data) then begin
+            limmag=-2.5*alog10(3*skynoise)+zp
+            openw,lun,save_data,/get_lun
+            printf,lun,';; '+xtitle+'    etburst       mag        -emag       +emag      limmag'
+            for i=0,n_elements(x)-1 do begin
+                printf,lun,x[i],ex[i],mag[i],memag[i],pemag[i],limmag[i],format='(f16.6,f12.5,f12.5,f12.5,f12.5,f12.5)'
+            endfor
+            close,lun
+            free_lun,lun
+        endif
+
+       y=mag
+    endif else begin
+        plot,x[w],y[w],ps=4,title=title,xtitle=xtitle,ytitle='Relative Flux',xstyle=3,ystyle=3,xlog=(*data).plot_xlog,xrange=xrange
+        ;;oploterror,x[w],y[w],ey[w],ps=4
+        oploterror,x[w],y[w],ex[w],ey[w],ps=4
+
+        ;; mark S/N > 3 points in bold
+        w2=where(y[w]/ey[w] gt 3.0,nw)
+        if nw gt 0 then oplot,x[w[w2]],y[w[w2]],psym=4,thick=2
+
+        ;; show limiting flux
+        wsort=sort(x[w])
+        oplot,x[w[wsort]],3*skynoise[w[wsort]],ps=10,color=col.orange,linestyle=0
+
+        ;; save data?
+        if keyword_set(save_data) then begin
+            openw,lun,save_data,/get_lun
+            printf,lun,';; '+xtitle+'        etburst          flux           eflux'
+            for i=0,n_elements(x)-1 do begin
+                printf,lun,x[i],ex[i],y[i],ey[i]
+            endfor
+            close,lun
+            free_lun,lun
+        endif
+    endelse
+
+    if (*data).dosum eq 0 then begin
+        ;; show current image in green
+        oplot,[x[(*data).current_image]],[y[(*data).current_image]],ps=8,color=col.green,thick=2
+        
+        ;; show reference image in red
+        oplot,[x[(*data).refi]],[y[(*data).refi]],ps=8,color=col.red
+    endif
+endif
+
+;; show fit?
+
+if keyword_set(save_plot) then begin
+    device,/close
+    set_plot,'x'
+endif
+
+;; store the plotting var clip region
+(*data).plot_clip=!p.clip
+
+end
+
+;; ********************************************************************************
+pro rphot_image_clicked,event
+COMPILE_OPT IDL2
+
+;; responds to user mouse clicks on the main image window. Depending
+;; on the mode, this could mean (un)selecting a target/refstar,
+;; zooming in on the image, or selecting an object for closeup display.
+
+;; load colors
+col=getcolor(/load)
+
+if event.press eq 0 then return
+
+widget_control,event.top,get_uvalue=data
+ims=(*(*data).images)[(*data).current_image]
+
+;; set the plotting window
+widget_control,event.id,get_value=win_id
+wset,win_id
+
+;; determine the image x,y coord of the click
+clip=(*data).image_clip
+winx=clip[2]-clip[0]
+winy=clip[3]-clip[1]
+offset=clip[0:1]
+
+zoom=(*(*data).images)[(*data).current_image].zoom
+plotx=zoom[2]-zoom[0]
+ploty=zoom[3]-zoom[1]
+
+stepx=float(plotx)/float(winx)
+x=(event.x-clip[0])*stepx+zoom[0]+ims.clip[0]
+stepy=float(ploty)/float(winy)
+y=(event.y-clip[1])*stepy+zoom[1]+ims.clip[1]
+
+;;Find the closest object to click
+object='random'
+objx=x
+objy=y
+;; is it the target?
+if sqrt((ims.x-x)^2+(ims.y-y)^2) le ims.rad then begin
+    objx=ims.x
+    objy=ims.y
+    object='target'
+endif else begin
+    ;; is it a refstar?
+    dist=(*ims.refx-x)^2+(*ims.refy-y)^2
+    mindist=sqrt(min(dist,wmin))
+    if mindist le ims.rad then begin
+        objx=(*ims.refx)[wmin]
+        objy=(*ims.refy)[wmin]
+        object='refstar'
+    endif else begin
+        ;; is it an object?
+        dist=(*ims.objx-x)^2+(*ims.objy-y)^2
+        mindist=sqrt(min(dist,wmin))
+        if mindist le ims.rad then begin
+            objx=(*ims.objx)[wmin]
+            objy=(*ims.objy)[wmin]
+            object='object'
+        endif
+    endelse
+endelse
+
+;; what we do with that click depends on the mode
+case (*data).mode of
+    'zoom': begin
+        if not keyword_set(*ims.image) then return
+
+        drag_cursor,xyarr,color=col.green,/silent,/mess
+        if(xyarr[2]-xyarr[0] lt 5 or xyarr[3]-xyarr[1] lt 5) then return
+        zoom=[max([0,xyarr[0]]),max([0,xyarr[1]]),min([ims.nx-1,xyarr[2]]),min([ims.ny-1,xyarr[3]])]
+        (*(*data).images)[(*data).current_image].zoom=long(zoom)
+        rphot_display_image,data,ims.imname
+    end
+
+    'select': begin
+        if (*data).just_one eq 1 and object ne 'random' then begin
+            ;; set new target
+            ims.x=objx
+            ims.y=objy
+
+            if ims.ra eq -1 then begin
+                ;; set the ra and dec
+                dist=(*ims.objx-objx)^2+(*ims.objy-objy)^2
+                mindist=sqrt(min(dist,wmin))
+                if mindist le ims.rad then begin
+                    ims.ra=(*ims.objra)[wmin]
+                    ims.dec=(*ims.objdec)[wmin]
+                endif
+            endif
+
+            ;; do photometry on target
+            rphot_get_object_counts,data,ims.x,ims.y,flux,eflux,lsky=lsky,skynoise=skynoise
+            ims.counts=flux
+            ims.ecounts=eflux
+            ims.sky=lsky
+            ims.skynoise=skynoise
+
+            ;; redraw
+            (*(*data).images)[(*data).current_image]=ims
+            rphot_display_image,data,ims.imname
+        endif else begin
+            ;; refstar add/drop
+            if (*ims.refx)[0] ne -1 and object eq 'refstar' then begin
+                ;; drop from refstar list
+                w2=where(lindgen(n_elements(*ims.refx)) ne wmin,nw2)
+                if nw2 eq 0 then begin
+                    *ims.refx=-1
+                    *ims.refy=-1
+                    *ims.refra=-1
+                    *ims.refdec=-1
+                    *ims.refcounts=!values.d_nan
+                    *ims.refecounts=!values.d_nan
+                endif else begin
+                    *ims.refx=(*ims.refx)[w2]
+                    *ims.refy=(*ims.refy)[w2]
+                    *ims.refra=(*ims.refra)[w2]
+                    *ims.refdec=(*ims.refdec)[w2]
+                    *ims.refcounts=(*ims.refcounts)[w2]
+                    *ims.refecounts=(*ims.refecounts)[w2]
+                endelse
+            endif else begin
+                ;; add refstar
+                ;;rphot_get_object_counts,data,objx,objy,flux,eflux
+                if (*ims.refx)[0] eq -1 then begin
+                    *ims.refx=[objx]
+                    *ims.refy=[objy]
+                    *ims.refra=[(*ims.objra)[wmin]]
+                    *ims.refdec=[(*ims.objdec)[wmin]]
+                    ;;*ims.refcounts=[flux]
+                    ;;*ims.refecounts=[eflux]
+                endif else begin
+                    *ims.refx=[*ims.refx,objx]
+                    *ims.refy=[*ims.refy,objy]
+                    *ims.refra=[*ims.refra,(*ims.objra)[wmin]]
+                    *ims.refdec=[*ims.refdec,(*ims.objdec)[wmin]]
+                    ;;*ims.refcounts=[*ims.refcounts,flux]
+                    ;;*ims.refecounts=[*ims.refecounts,eflux]
+                endelse
+            endelse
+
+            (*(*data).images)[(*data).current_image]=ims
+            rphot_display_image,data,ims.imname
+        endelse
+    end
+    'examine': begin
+        case object of
+            'target': (*data).plot_mode='target'
+            'refstar': begin
+                (*data).plot_mode='refstar'
+                (*data).refstari=wmin[0]
+            end
+            else :
+        endcase
+        rphot_display_plot,data
+    end
+    else :
+endcase
+
+if (*data).mode ne 'zoom' then begin
+    ;; display a closeup of the object
+    rphot_display_closeup,data,objx,objy
+endif
+
+end
+
+;; ********************************************************************************
+pro rphot_closeup_clicked,event
+COMPILE_OPT IDL2
+
+;; responds to user clicks on the closeup image. Will add/drop pixel(s)
+;; from the target sky mask depending on which button was
+;; pressed. Recalculates target counts.
+
+if event.press eq 0 then return
+
+widget_control,event.top,get_uvalue=data
+if (*data).closeup_mode ne 'image' then return
+ims=(*(*data).images)[(*data).current_image]
+
+;; determine the image x,y coord of the click
+rphot_display_closeup,data,/nodata
+xy=convert_coord(event.x,event.y,/device,/to_data)
+x=xy[0]
+y=xy[1]
+
+;; toggel the pixel mask
+ind=long(round(x)+round(y)*ims.nx)
+case event.press of
+    1: begin
+        ;; left mouse press
+        ;; add 1 pixels
+        *ims.mask=[*ims.mask,ind]
+    end
+    2: begin
+        ;; center mouse press
+        ;; add 9 pixels
+        *ims.mask=[*ims.mask $
+                   ,ind-1,ind,ind+1 $
+                   ,ind-1-ims.nx,ind-ims.nx,ind+1-ims.nx $
+                   ,ind-1+ims.nx,ind+ims.nx,ind+1+ims.nx]
+    end
+    4: begin
+        ;; right mouse press
+        ;; remove 1 pixel
+        w=where(*ims.mask ne ind,nw)
+        if nw eq 0 then *ims.mask=-1 else *ims.mask=(*ims.mask)[w]
+    end
+    8: begin
+        ;; mouse-wheel down? press
+        ;; remove 9 pixels
+        w=where(*ims.mask ne ind-1 and *ims.mask ne ind and *ims.mask ne ind+1 $
+                and *ims.mask ne ind-1-ims.nx and *ims.mask ne ind-ims.nx and *ims.mask ne ind+1-ims.nx $
+                and *ims.mask ne ind-1+ims.nx and *ims.mask ne ind+ims.nx and *ims.mask ne ind+1+ims.nx,nw)
+        if nw eq 0 then *ims.mask=-1 else *ims.mask=(*ims.mask)[w]
+    end
+    16: begin
+        ;; mouse-wheel up? press
+        ;; add 9 pixels
+        *ims.mask=[*ims.mask $
+                   ,ind-1,ind,ind+1 $
+                   ,ind-1-ims.nx,ind-ims.nx,ind+1-ims.nx $
+                   ,ind-1+ims.nx,ind+ims.nx,ind+1+ims.nx]
+    end 
+endcase
+
+w=where(*ims.mask ne -1,nw)
+if nw eq 0 then *ims.mask=-1 else *ims.mask=(*ims.mask)[w]
+*ims.mask=(*ims.mask)[uniq(*ims.mask,sort(*ims.mask))]
+
+;; recalculate flux
+rphot_get_object_counts,data,ims.x,ims.y,flux,eflux,lsky=lsky,skynoise=skynoise
+ims.counts=flux
+ims.ecounts=eflux
+ims.sky=lsky
+ims.skynoise=skynoise
+(*(*data).images)[(*data).current_image]=ims
+
+;; show the new target mask
+rphot_display_closeup,data
+rphot_display_plot,data
+
+end
+
+;; ********************************************************************************
+pro rphot_plot_clicked,event
+COMPILE_OPT IDL2
+
+;; responds to user clicks on the plot window. Finds the closest data
+;; point (poorly) and sets it as the current image, then re-displays
+;; everything.
+
+if event.press eq 0 then return
+
+;; get the xy location of the click
+widget_control,event.top,get_uvalue=data
+rphot_display_plot,data,x=xs,y=ys
+xy=convert_coord(event.x,event.y,/device,/to_data)
+
+;; find closest data point to click
+dist=(xs-xy[0])^2.0+(ys-xy[1])^2.0
+mindist=sqrt(min(dist,wmin))
+
+;; display that image
+(*data).current_image=wmin
+rphot_display_image,data
+rphot_display_plot,data
+rphot_display_closeup,data
+
+end
+
+;; ********************************************************************************
+pro rphot_get_counts,event
+COMPILE_OPT IDL2
+
+;; recalculate photometry for the current image
+
+widget_control,event.top,get_uvalue=data
+ims=(*(*data).images)[(*data).current_image]
+refims=(*(*data).images)[(*data).refi]
+
+;; get the psf
+rphot_get_psf,data,ims
+
+;; do photometry on refstars
+rphot_get_object_counts,data,*ims.refx,*ims.refy,flux,eflux
+*ims.refcounts=flux
+*ims.refecounts=eflux
+
+;; get the ratio ref/new counts
+ratios=flux/(*refims.refcounts)
+eratios=sqrt( (eflux/(*refims.refcounts))^2.0 + ((*refims.refecounts)*flux/(*refims.refcounts)^2.0)^2.0 )
+ratio=wtaverage(ratios,eratios)
+ims.ratio=ratio[0]
+ims.eratio=ratio[1]
+
+;; do photometry on target
+rphot_get_object_counts,data,ims.x,ims.y,flux,eflux,lsky=lsky,skynoise=skynoise
+ims.counts=flux
+ims.ecounts=eflux
+ims.sky=lsky
+ims.skynoise=skynoise
+
+;; record
+(*(*data).images)[(*data).current_image]=ims
+
+;; redraw
+rphot_display_image,data
+rphot_display_plot,data
+
+end
+
+;; ********************************************************************************
+pro rphot_get_object_counts,data,x,y,flux,eflux,lsky=lsky,std=std,skynoise=skynoise
+COMPILE_OPT IDL2
+
+;; preforms aperature photometry on the current image. X and Y can be
+;; arrays. If no mask exists for the current image and we are getting
+;; target counts, transforms the refimage sky mask to the current
+;; image, then checks for additional bad pixels (CRs, etc.). Otherwise
+;; masks are calculated on the fly.
+
+ims=(*(*data).images)[(*data).current_image]
+
+n=n_elements(x)
+flux=dblarr(n)
+eflux=dblarr(n)
+for i=0,n-1 do begin
+    ;; is this the target?
+    if x[i] eq ims.x and y[i] eq ims.y then begin
+        ;; does a mask exist?
+        if (*ims.mask)[0] eq -1 then begin
+            if (*data).current_image eq (*data).refi then begin
+                undefine,inmask
+                noreject=0
+            endif else begin
+                ;; make one
+                refims=(*(*data).images)[(*data).refi]
+                refmask=*refims.mask
+                refx=refmask mod ims.nx
+                refy=refmask/ims.nx
+
+                ;; dilate the mask by 0.2 pix
+                refx=[refx-0.2,refx,refx+0.2 $
+                      ,refx-0.2,refx,refx+0.2 $
+                      ,refx-0.2,refx,refx+0.2 ]
+                refy=[refy-0.2,refy-0.2,refy-0.2 $
+                      ,refy,refy,refy $
+                      ,refy+0.2,refy+0.2,refy+0.2]
+
+                ;; transform the mask
+                kmap,refx,refy,newx,newy,*ims.kx,*ims.ky
+                inmask=long(round(newx)+round(newy)*ims.nx)
+                inmask=inmask[uniq(inmask,sort(inmask))]
+                noreject=0
+            endelse
+        endif else begin
+            inmask=*ims.mask
+            noreject=1
+        endelse
+    endif else begin
+        undefine,inmask
+        noreject=0
+    endelse
+ 
+    ;; do local sky subtraction
+    lsky=(get_local_sky(*ims.image,x[i],y[i],ims.rad+1.0,3.0*ims.rad $
+                        ,annulus=annulus,std=std,rej=rej,inmask=inmask,noreject=noreject))[0]
+    npix=n_elements(annulus)
+    w=where(noreject ne -1,nrej)
+    if noreject eq 0 then npix=npix-nrej
+    setsky=[lsky,std,npix]
+
+    ;; save target mask
+    if x[i] eq ims.x and y[i] eq ims.y and (*ims.mask)[0] eq -1 then begin
+        ;; save the mask
+        if (*data).current_image eq (*data).refi then *ims.mask=rej $
+        else if rej[0] ne -1 then *ims.mask=[inmask,rej] $
+        else *ims.mask=inmask
+        w=where(*ims.mask ne -1,nw)
+        if nw gt 0 then *ims.mask=(*ims.mask)[w]
+
+        ;; record
+        (*(*data).images)[(*data).current_image]=ims
+    endif
+
+    ;; ##### replace masked pixels inside the aper radius with profile
+    ;; values #####
+
+    ;; get the counts
+    aper,*ims.image,x[i],y[i],f,ef,sky,esky,1,ims.rad,[ims.rad+1.0,3.0*ims.rad],[0,0] $
+        ,/flux,/exact,/silent,setskyval=setsky
+    flux[i]=f
+    eflux[i]=ef
+
+    ;; calcualte the local sky noise
+    area=!pi*ims.rad^2.0
+    skynoise=sqrt(area*std^2.0 + std^2.0/npix*area^2.0)
+endfor
+
+w=where(finite(flux) eq 0,nw)
+if nw gt 0 then begin
+    print,"APER returned flux=NAN. It shouldn't. Use updated APER...stopping"
+    stop
+endif
+
+end
+
+;; ********************************************************************************
+pro rphot_toggel_objects,event
+COMPILE_OPT IDL2
+
+;; Turns display of the target, refstars, calib stars, and objects on
+;; and off (the circles on the image).
+
+widget_control,event.top,get_uvalue=data
+widget_control,event.id,get_uvalue=type
+
+case type of
+    'target': begin
+        if (*data).show_target eq 1 then begin
+            (*data).show_target=0
+            widget_control,event.id,set_value='Show Target'
+        endif else begin
+            (*data).show_target=1
+            widget_control,event.id,set_value='Hide Target'
+        endelse
+    end
+    'refstars': begin
+        if (*data).show_refstars eq 1 then begin
+            (*data).show_refstars=0
+            widget_control,event.id,set_value='Show Refstars'
+        endif else begin
+            (*data).show_refstars=1
+            widget_control,event.id,set_value='Hide Refstars'
+        endelse
+    end
+    'calibs': begin
+        if (*data).show_calibs eq 1 then begin
+            (*data).show_calibs=0
+            widget_control,event.id,set_value='Show Calib Stars'
+        endif else begin
+            (*data).show_calibs=1
+            widget_control,event.id,set_value='Hide Calib Stars'
+        endelse
+    end
+    else: begin
+        if (*data).show_objects eq 1 then begin
+            (*data).show_objects=0
+            widget_control,event.id,set_value='Show Objects'
+        endif else begin
+            (*data).show_objects=1
+            widget_control,event.id,set_value='Hide Objects'
+        endelse
+    end
+endcase
+
+rphot_display_image,data
+rphot_display_closeup,data
+
+end
+
+
+;; ********************************************************************************
+pro rphot_done,event
+COMPILE_OPT IDL2
+
+;; shuts down rphot helper widgets when the user clicks "done"
+
+widget_control,event.top,get_uvalue=data
+
+;; blank the widget id
+widget_control,event.id,get_uvalue=type
+case type of
+    'select_objects': begin
+        ;; erase all data using old target
+        for i=0,n_elements( (*(*data).images).imname)-1 do begin
+            if (*(*data).images)[i].imname ne (*(*data).images)[(*data).refi].imname then begin
+                (*(*data).images)[i].ratio=1.0
+                (*(*data).images)[i].eratio=0.0
+                (*(*data).images)[i].ra=-1.0
+                (*(*data).images)[i].dec=-1.0
+                (*(*data).images)[i].x=-1.0
+                (*(*data).images)[i].y=-1.0
+                *(*(*data).images)[i].refra=-1.0
+                *(*(*data).images)[i].refdec=-1.0
+                *(*(*data).images)[i].refx=-1.0
+                *(*(*data).images)[i].refy=-1.0
+                *(*(*data).images)[i].refcounts=!values.d_nan
+                *(*(*data).images)[i].refecounts=!values.d_nan
+                *(*(*data).images)[i].mask=-1
+            endif
+        endfor
+
+        ;; do photometry
+        refims=(*(*data).images)[(*data).refi]
+        if (*data).just_one eq 0 then begin
+            ;; get the psf
+            rphot_get_psf,data,refims
+            
+            ;; do photometry on refstars
+            rphot_get_object_counts,data,*refims.refx,*refims.refy,flux,eflux
+            *refims.refcounts=flux
+            *refims.refecounts=eflux
+        endif
+
+        ;; do photometry on target
+        rphot_get_object_counts,data,refims.x,refims.y,flux,eflux,lsky=lsky,skynoise=skynoise
+        refims.counts=flux
+        refims.ecounts=eflux
+        refims.sky=lsky
+        refims.skynoise=skynoise
+        (*(*data).images)[(*data).refi]=refims
+
+        ;; clear select mode
+        (*data).select_objects_id=0
+        (*data).mode='zoom'
+    end
+    'cancel_select': begin
+        (*data).select_objects_id=0
+        (*data).mode='zoom'
+    end
+    'show_image': (*data).show_image_id=0
+    else:
+endcase
+
+;; good-bye
+widget_control,event.top,/destroy
+
+end
+
+;; ********************************************************************************
+pro rphot_save,event
+COMPILE_OPT IDL2
+
+;; saves the current *data structure (excluding the actual images and
+;; widget_ids) using IDL's save routine.
+
+widget_control,event.top,get_uvalue=data
+
+file=dialog_pickfile(filter='*.sav',title='Save Photometry Data As',/write,file="rphot.sav")
+if file eq '' then return
+
+rphot_data=*data
+
+;; don't save the images
+for i=0,n_elements((*rphot_data.images).imname)-1 do begin
+    *(*rphot_data.images)[i].image=0
+endfor
+
+;; dont't save the widget_ids
+tags=tag_names(rphot_data)
+for i=0,n_elements(tags)-1 do begin
+    if strpos(tags[i],'_ID') ne -1 then begin
+        rphot_data.(i)=0
+    endif
+endfor
+
+save,rphot_data,filename=file
+
+end 
+
+;; ********************************************************************************
+pro rphot_restore,event
+COMPILE_OPT IDL2
+
+;; restorse and IDL save file with data from a previous rphot
+;; session. You start up right where you left off. If rpho.pro has
+;; been alterned since the save, this may not work too well
+;; (specifically, if the structure members change, bad things can
+;; happen).
+
+widget_control,event.top,get_uvalue=data
+
+;; record current widget ids
+tags=tag_names((*data))
+ids=lonarr(n_elements(tags))-1
+for i=0,n_elements(tags)-1 do begin
+    if strpos(tags[i],'_ID') ne -1 then begin
+        ids[i]=(*data).(i)
+    endif
+endfor
+
+file=dialog_pickfile(filter='*.sav',title='Load Photometry Data',/read,file="rphot.sav")
+if file eq '' then return
+
+;; ##### check if the file exists #####
+
+;; load the data file (stored in rphot_data variable)
+restore,file
+
+;; erase current *data values
+for i=0,n_elements( (*(*data).images).imname)-1 do begin
+    n_tags=n_tags((*(*data).images)[i])
+    for j=0,n_tags-1 do begin
+        info=size( (*(*data).images)[i].(j) )
+        type=info[n_elements(info)-2]
+        if type eq 10 then begin
+            undefine,*(*(*data).images)[i].(j)
+            ptr_free,(*(*data).images)[i].(j)
+        endif
+    endfor
+endfor
+ptr_free,(*data).images
+undefine,*(*data).calib.ra
+undefine,*(*data).calib.dec
+undefine,*(*data).calib.mag
+undefine,*(*data).calib.emag
+undefine,*(*data).calib.use
+ptr_free,(*data).calib.ra
+ptr_free,(*data).calib.dec
+ptr_free,(*data).calib.mag
+ptr_free,(*data).calib.emag
+ptr_free,(*data).calib.use
+
+;; apply existing widget values
+for i=0,n_elements(ids)-1 do begin
+    if ids[i] ne -1 then begin
+        rphot_data.(i)=ids[i]
+    endif
+endfor
+
+;; set data to loaded file
+blah=*data
+struct_assign,rphot_data,blah,/nozero,/verbose
+*data=blah
+;;*data=rphot_data
+
+;; ### update all the displayed settings so they match the saved
+;; session ###
+
+end 
+
+;; ********************************************************************************
+pro rphot_all_done,event
+COMPILE_OPT IDL2
+
+;; shuts down rphot cleanly--frees all the pointers.
+
+;; free memory
+widget_control,event.top,get_uvalue=data
+
+for i=0,n_elements( (*(*data).images).imname)-1 do begin
+    n_tags=n_tags((*(*data).images)[i])
+    for j=0,n_tags-1 do begin
+        info=size( (*(*data).images)[i].(j) )
+        type=info[n_elements(info)-2]
+        if type eq 10 then begin
+            undefine,*(*(*data).images)[i].(j)
+            ptr_free,(*(*data).images)[i].(j)
+        endif
+    endfor
+endfor
+ptr_free,(*data).images
+undefine,*(*data).calib.ra
+undefine,*(*data).calib.dec
+undefine,*(*data).calib.mag
+undefine,*(*data).calib.emag
+undefine,*(*data).calib.use
+ptr_free,(*data).calib.ra
+ptr_free,(*data).calib.dec
+ptr_free,(*data).calib.mag
+ptr_free,(*data).calib.emag
+ptr_free,(*data).calib.use
+ptr_free,data
+
+;; good-bye
+widget_control,event.top,/destroy
+
+end
+
+;; ********************************************************************************
+function rphot_new_image,imname,mjd,efftime
+COMPILE_OPT IDL2
+
+;; creates a new structure to hold image data. Tries to find the cobj
+;; file associated with the imname.
+
+if keyword_set(imname) then begin
+    ;; find the cobjfile
+    dir=strmid(imname,0,strpos(imname,'/',/REVERSE_SEARCH)-5)+'prod/'
+    file=strmid(imname,strpos(imname,'/',/REVERSE_SEARCH)+1)
+    file=strmid(file,0,strpos(file,'.fit'))+'obj.fit'
+    cobjfile=dir+file
+endif else cobjfile=''
+
+temp = {                        $
+         imname: imname,        $
+         timestamp: 0.0d,       $
+         image: ptr_new(0),     $
+         cobjfile: cobjfile,    $
+         sumind: 0L,            $
+         mjd: 0.0d,             $
+         exp: 0.0d,             $
+         nx: 0L,                $
+         ny: 0L,                $
+         clip: [0,0,0,0],       $
+         zoom: [0,0,0,0],       $
+         skymode: 0.0d,         $
+         skysig: 0.0d,          $
+         span: 0.0d,            $
+         zero: 0.0d,            $
+         kx: ptr_new(-1),       $
+         ky: ptr_new(-1),       $
+         x: -1.0d,              $
+         y: -1.0d,              $
+         ra: -1.0d,             $
+         dec: -1.0d,            $
+         counts: !values.d_nan, $
+         ecounts: !values.d_nan,$
+         sky: !values.d_nan,    $
+         skynoise: !values.d_nan,$
+         rad: 3.5d,             $
+         refx: ptr_new(-1),     $
+         refy: ptr_new(-1),     $
+         refra: ptr_new(-1),    $
+         refdec: ptr_new(-1),   $
+         refcounts: ptr_new(!values.d_nan),$
+         refecounts: ptr_new(!values.d_nan),$
+         objx: ptr_new(-1),     $
+         objy: ptr_new(-1),     $
+         objra: ptr_new(-1),    $
+         objdec: ptr_new(-1),   $
+         ratio: 1.0d,           $
+         eratio: 0.0d,          $
+         psf: ptr_new(0),       $
+         mask: ptr_new(-1)      $
+       }
+
+return,temp
+
+end
+
+;; ********************************************************************************
+function rphot_copy_image,oldimage
+COMPILE_OPT IDL2
+
+;; returns a new image structure with all the fields coppied over from
+;; oldimage (new pointers, same old data).
+
+image=rphot_new_image(oldimage.imname,oldimage.mjd,oldimage.exp)
+
+n_tags=n_tags(image)
+for i=0,n_tags-1 do begin
+    info=size( image.(i) )
+    type=info[n_elements(info)-2]
+    if type eq 10 then *image.(i)=*oldimage.(i) $
+    else image.(i)=oldimage.(i)
+endfor
+
+return,image
+
+end
+
+; ********************************************************************************
+pro rphot_change_mode,event
+COMPILE_OPT IDL2
+
+;; Lets the user switch cleanly between zoom, adjust (span/zero), and
+;; examine modes.
+
+widget_control,event.top,get_uvalue=data
+mode=((*data).mode_list)[widget_info((*data).mode_list_id,/droplist_select)]
+
+case mode of
+    'zoom': begin
+        widget_control,(*data).examine_options_id,map=0
+        widget_control,(*data).adjust_options_id,map=0
+        widget_control,(*data).zoom_options_id,map=1
+        (*data).mode='zoom'
+    end
+    'examine': begin
+        widget_control,(*data).zoom_options_id,map=0
+        widget_control,(*data).adjust_options_id,map=0
+        widget_control,(*data).examine_options_id,map=1
+        (*data).mode='examine'
+    end
+    'zero/span': begin
+        widget_control,(*data).zoom_options_id,map=0
+        widget_control,(*data).examine_options_id,map=0
+        widget_control,(*data).adjust_options_id,map=1
+        (*data).mode='zoom'
+    end
+    else: 
+endcase
+
+end
+
+; ********************************************************************************
+pro rphot_change_plot_mode,event
+COMPILE_OPT IDL2
+
+;; lets the user change the x and y plot format
+
+index=widget_info(event.id,/droplist_select)
+
+widget_control,event.top,get_uvalue=data
+widget_control,event.id,get_uvalue=type
+
+case type of
+    'xmode': begin
+        case index of
+            0: (*data).plot_xmode='index'
+            1: (*data).plot_xmode='mjd'
+            2: (*data).plot_xmode='tburst'
+            else:
+        end
+    end
+    'xlog': (*data).plot_xlog=index
+    'ymode': begin
+        case index of
+            0: (*data).plot_ymode='flux'
+            1: (*data).plot_ymode='mag'
+            else:
+        end
+    end
+    else: 
+endcase
+
+rphot_display_plot,data
+
+end
+
+; ********************************************************************************
+pro rphot_image_adjusted,event
+COMPILE_OPT IDL2
+
+;; redisplays the image when the span or zero changes.
+
+widget_control,event.top,get_uvalue=data
+widget_control,event.id,get_uvalue=type
+
+ims=(*(*data).images)[(*data).current_image]
+
+case type of
+    'zero': rphot_set_zero,data,value=event.value
+    'span': rphot_set_span,data,value=event.value
+    'reset': begin
+        rphot_set_zero,data,zero=ims.skymode-1.5*ims.skysig
+        rphot_set_span,data,span=8*ims.skysig
+    end
+    else: 
+endcase
+
+rphot_display_image,data,(*(*data).images)[(*data).current_image].imname
+
+end
+
+
+;; ********************************************************************************
+pro rphot_set_zero,data,value=value,zero=zero
+
+;; value is an integer from 0 to 200
+;; if value is set, set the image zero to zeros[value]
+;; if zero is set, reflect the change on the widget value
+
+barlen=200
+ims=(*(*data).images)[(*data).current_image]
+zeros=linespace(ims.skymode-10*ims.skysig,ims.skymode+10*ims.skysig,barlen+1)
+
+if n_elements(value) gt 0 then begin
+    (*(*data).images)[(*data).current_image].zero=zeros[value]
+endif else if n_elements(zero) gt 0 then begin
+    (*(*data).images)[(*data).current_image].zero=zero
+    blah=min(abs(zeros-zero),value)
+    widget_control,(*data).zero_id,set_value=value
+endif
+
+end
+
+;; ********************************************************************************
+pro rphot_set_span,data,value=value,span=span
+
+;; value is an integer from 0 to 200
+;; if value is set, set the image span to spans[value]
+;; if span is set, reflect the change on the widget value
+
+barlen=200
+ims=(*(*data).images)[(*data).current_image]
+spans=linespace(0.5*ims.skysig,20*ims.skysig,barlen+1)
+
+if n_elements(value) gt 0 then begin
+    (*(*data).images)[(*data).current_image].span=spans[value]
+endif else if n_elements(span) gt 0 then begin
+    (*(*data).images)[(*data).current_image].span=span
+    blah=min(abs(spans-span),value)
+    widget_control,(*data).span_id,set_value=value
+endif
+
+end
+
+
+;; ********************************************************************************
+pro rphot_save_lc_data,event
+COMPILE_OPT IDL2
+
+;; prints the lightcurve data to a file
+
+;; get the output file name
+file=dialog_pickfile(filter='*.dat',title='Save Light Curve Data As',/write,file="lightcurve.dat")
+if file eq '' then return
+
+;; save the data
+widget_control,event.top,get_uvalue=data
+rphot_display_plot,data,save_data=file
+
+
+end
+
+;; ********************************************************************************
+pro rphot_save_lc_plot,event
+COMPILE_OPT IDL2
+
+;; outpurs the lightcurve to a file
+
+;; get the output file name
+file=dialog_pickfile(filter='*.ps',title='Save Light Curve Plot As',/write,file="lightcurve.ps")
+if file eq '' then return
+
+;; save the plot
+widget_control,event.top,get_uvalue=data
+rphot_display_plot,data,save_plot=file
+
+end
+
+
+
+;; ********************************************************************************
+;; ********************************************************************************
+pro rphot,data,imlist=imlist,refname=refname,name=name
+COMPILE_OPT IDL2
+
+;+
+; NAME:
+;       RPHOT
+; PURPOSE:
+;    RPHOT is a widget designed to preform relative photometry on ROTSE
+;    images. Its goal is to make the process of creating a light curve
+;    as simple as possible for the user. The location of the target and
+;    the refernece stars are automatically found as the user scrolls from
+;    image to image, as are the object counts and relative image
+;    zeropoints. As a completely automatic routine would eventually find
+;    the limits of its usefulness, a pointer to the entire data
+;    structure is maintained letting the user do things "by hand" as
+;    necessary. 
+;       
+; TYPE:
+; 	
+; CALLING SEQUENCE:
+;       rphot,data [,imlist=imlist, refname=refname, name=name]
+; INPUTS:
+;       
+; OPTIONAL INPUTS:
+; 	imlist --> list of image names to load
+;       refname --> name of the reference image for the relative photometry
+;       name --> name of the target
+; KEYWORDS:
+; 
+; OUTPUTS:
+;       data --> a pointer to the data structure
+; COMMON BLOCKS:
+; 	
+; SIDE EFFECTS:
+; 	
+; EXAMPLES:
+;
+; PROCEDURE:
+; 	
+; MODIFICATION HISTORY:
+;       Written by Robert Quimby, August 2003
+;       Cleaned up a bit, RQ 11/2004
+;-
+
+if N_params() lt 1 then begin
+    print,'Syntax - rphot,data [,imlist=imlist, refname=refname, name=name]'
+    return
+endif
+
+if not keyword_set(name) then name='Target'
+
+;; define circular plotting symbols
+a=linespace(0,2*!pi,30)
+usersym,1.5*cos(a),1.5*sin(a)
+
+;; draw window sizes (in pixels NxN)
+image_size=[705,600]
+closeup_size=[200,200]
+plot_size=[500,200]
+
+;; *** this is the top level widget ***
+base=widget_base(column=1,/base_align_center,title='ROTSE Photometry Console',mbar=menubar)
+
+;; file menu widget base
+file_menu=widget_button(menubar,VALUE='File',/MENU)
+but=widget_button(file_menu,value='Save...',event_pro='rphot_save')
+but=widget_button(file_menu,value='Restore...',event_pro='rphot_restore')
+but=widget_button(file_menu,value='Save LC plot...',event_pro='rphot_save_lc_plot')
+but=widget_button(file_menu,value='Save LC data...',event_pro='rphot_save_lc_data')
+but=widget_button(file_menu,value='EXIT',event_pro='rphot_all_done')
+
+;; load menu widget base
+load_menu=widget_button(menubar,VALUE='Load',/MENU)
+but=widget_button(load_menu,value='Choose Images...',event_pro='rphot_choose_images')
+but=widget_button(load_menu,value='Add Images...',event_pro='rphot_add_images')
+but=widget_button(load_menu,value='Choose Ref Image...',event_pro='rphot_choose_refim')
+
+;; object menu widget base
+object_menu=widget_button(menubar,VALUE='Object',/MENU)
+but=widget_button(object_menu,value='Choose Target...',event_pro='rphot_choose_object',uval=1)
+but=widget_button(object_menu,value='Choose Refstars...',event_pro='rphot_choose_object',uval=0)
+but=widget_button(object_menu,value='Get Counts',event_pro='rphot_get_counts')
+but=widget_button(object_menu,value='Calibrate...',event_pro='rphot_get_calib')
+
+;; display menu widget base
+display_menu=widget_button(menubar,VALUE='Display',/MENU)
+but=widget_button(display_menu,value='Display Image...',event_pro='rphot_show_image')
+but=widget_button(display_menu,value='Hide Objects',event_pro='rphot_toggel_objects',uval='objects')
+but=widget_button(display_menu,value='Hide Refstars',event_pro='rphot_toggel_objects',uval='refstars')
+but=widget_button(display_menu,value='Hide Calib Stars',event_pro='rphot_toggel_objects',uval='calibs')
+but=widget_button(display_menu,value='Hide Target',event_pro='rphot_toggel_objects',uval='target')
+
+;; help button
+help_menu=widget_button(menubar,VALUE='Help',/MENU,/help)
+help=widget_button(help_menu,VALUE='Help!')
+
+;; the mode options line
+mode_options=widget_base(base,row=1,/base_align_left)
+mode_list=['zoom','zero/span','examine']
+mode_list_id=widget_droplist(mode_options,value=mode_list,event_pro='rphot_change_mode')
+options=widget_base(mode_options,/base_align_left)
+
+zoom_options=widget_base(options,row=1,/base_align_left)
+but=widget_button(zoom_options,value='Zoom In 2x',event_pro='rphot_adjust_zoom',uval='in2x')
+but=widget_button(zoom_options,value='Zoom Out 2x',event_pro='rphot_adjust_zoom',uval='out2x')
+but=widget_button(zoom_options,value='Auto Zoom',event_pro='rphot_adjust_zoom',uval='auto')
+but=widget_button(zoom_options,value='Zoom All',event_pro='rphot_adjust_zoom',uval='all')
+
+examine_options=widget_base(options,row=1,/base_align_left,map=0)
+plot_mode_list=widget_droplist(examine_options,value=['Image Index','MJD','tburst'] $
+                               ,event_pro='rphot_change_plot_mode',title='X-axis',uvalue='xmode')
+plot_mode_list=widget_droplist(examine_options,value=['Linear','Log'] $
+                               ,event_pro='rphot_change_plot_mode',uvalue='xlog')
+plot_mode_list=widget_droplist(examine_options,value=['Flux','Magnitude'] $
+                               ,event_pro='rphot_change_plot_mode',title='Y-axis',uvalue='ymode')
+
+
+size=200
+adjust_options=widget_base(options,row=1,/base_align_left,map=0)
+zero=widget_slider(adjust_options,title='Zero',/SUPPRESS_VALUE,xsize=size,event_pro='rphot_image_adjusted' $
+                   ,uvalue='zero',value=size/2,minimum=0,maximum=size)
+span=widget_slider(adjust_options,title='Span',/SUPPRESS_VALUE,xsize=size,event_pro='rphot_image_adjusted' $
+                   ,uvalue='span',value=size/2,minimum=0,maximum=size)
+but=widget_button(adjust_options,value='Reset',event_pro='rphot_image_adjusted',uval='reset')
+
+;; window for displaying images
+image_id=widget_draw(base,xsize=image_size[0],ysize=image_size[1],uvalue='image' $
+                     ,/button_events,event_pro='rphot_image_clicked',frame=3)
+
+;; bottom row for draw widgets
+bottom=widget_base(base,row=1,/base_align_center)
+
+;; object closeup view
+closeup_id=widget_draw(bottom,xsize=closeup_size[0],ysize=closeup_size[1],uvalue='closeup' $
+                       ,/button_events,event_pro='rphot_closeup_clicked',frame=1)
+;; plot widget
+plot_id=widget_draw(bottom,xsize=plot_size[0],ysize=plot_size[1],uvalue='plot' $
+                    ,/button_events,event_pro='rphot_plot_clicked',frame=1)
+
+;; put together the input inmage names
+if keyword_set(imlist) eq 0 then imlist=['']
+if keyword_set(refname) eq 0 then refname=''
+imlist=[imlist,refname]
+imlist=imlist[uniq(imlist,sort(imlist))]
+
+n_images=n_elements(imlist)
+images=[rphot_new_image(imlist[0])]
+for i=1,n_images-1 do begin
+    images=[images,rphot_new_image(imlist[i])]
+endfor
+refi=(where(imlist eq refname))[0]
+
+;; struct for calibration data
+calib={ filter: '',            $
+        ra: ptr_new(0.0d),     $
+        dec: ptr_new(0.0d),    $
+        mag: ptr_new(0.0d),    $
+        emag: ptr_new(0.0d),   $
+        use: ptr_new(-1),      $
+        refmag: ptr_new(0.0d)  $
+      }
+
+;; *** record the widget values, image data, etc ***
+temp = {                                     $
+         name: name,                         $ ; target name
+         main_id: base,                      $
+         image_id: image_id,                 $
+         closeup_id: closeup_id,             $
+         plot_id: plot_id,                   $
+         show_image_id: 0L,                  $
+         select_objects_id: 0L,              $
+         select_radius_id: 0L,               $
+         ra_id: 0L,                          $
+         dec_id: 0L,                         $
+         span_id: span,                      $
+         zero_id: zero,                      $
+         imlist_id: 0L,                      $
+         mode_list_id: mode_list_id,         $
+         mode_list: mode_list,               $
+         image_clip: !p.clip,                $
+         closeup_clip: !p.clip,              $
+         plot_clip: !p.clip,                 $
+         zoom_options_id: zoom_options,      $
+         examine_options_id: examine_options,$
+         adjust_options_id: adjust_options,  $
+         just_one: 0L,                       $
+         refname: refname,                   $
+         refi: refi,                         $
+         refstari: 0L,                       $
+         current_image: 0L,                  $
+         mode: 'zoom',                       $
+         plot_mode: 'target',                $
+         plot_xmode: 'index',                $
+         plot_ymode: 'flux',                 $
+         plot_xlog: 0,                       $
+         closeup_mode: 'image',              $
+         show_objects: 1,                    $
+         show_refstars: 1,                   $
+         show_target: 1,                     $
+         show_calibs: 1,                     $
+         images: ptr_new(images),            $
+         psf_npix: 15,                       $
+         psf_grow: 5,                        $
+         calib: calib,                       $
+         zp: 0.0d,                           $
+         mjd: 0.0d,                          $
+         dosum: 0                            $
+       }
+
+data = ptr_new(temp,/no_copy)
+widget_control,base,set_uvalue=data
+
+;; *** show everything ***
+widget_control,base,/realize
+xmanager,'rphot',base,/no_block
+
+end

@@ -1,0 +1,76 @@
+/add_arrval.pro/1.1/Mon Mar  5 19:18:13 2001//
+/atv.pro/1.1/Mon May 22 17:01:38 2000//
+/check_flags.pro/1.1/Tue Jun  6 12:37:09 2000//
+/check_flags3.pro/1.1/Fri Nov 16 20:38:22 2001//
+/clean_sub.pro/1.1/Mon Apr 10 16:20:42 2000//
+/conv2deg.pro/1.1/Tue Jun  6 12:53:55 2000//
+/define_flags.pro/1.2/Tue Nov  6 16:31:44 2001//
+/define_flags3.pro/1.3/Thu Sep  5 20:28:20 2002//
+/dejitter.pro/1.1/Fri Apr 14 19:15:58 2000//
+/ecliptc.pro/1.1/Wed Sep 11 15:32:53 2002//
+/find_exp.pro/1.1/Mon Apr 10 16:20:42 2000//
+/gcvs_ascii_extract.pro/1.1/Mon Apr 10 16:20:42 2000//
+/gcvsread_str.pro/1.1/Mon Apr 10 16:20:42 2000//
+/get_calnames.pro/1.1/Tue Jun  6 12:53:55 2000//
+/get_hdr_jd.pro/1.1/Tue Jun  6 12:53:55 2000//
+/get_imkeys.pro/1.1/Tue Apr 11 14:04:02 2000//
+/get_mlim.pro/1.2/Fri Apr 14 16:18:12 2000//
+/lcplot2.pro/1.4/Wed Aug 23 17:39:38 2000//
+/make_sflag_struct.pro/1.1/Mon Apr 10 16:20:42 2000//
+/makefringe.pro/1.3/Mon Jun 30 08:23:28 2003//
+/match_names.pro/1.2/Tue Jun  6 16:47:09 2000//
+/nsvs_field.pro/1.2/Fri Jan 16 17:00:23 2004//
+/plot_sflags.pro/1.1/Mon Apr 10 16:20:42 2000//
+/plotbars.pro/1.1/Wed Jul 26 13:22:48 2000//
+/print_sflags.pro/1.1/Mon Apr 10 16:20:42 2000//
+/put_clr_scl2.pro/1.1/Mon Apr 10 16:20:42 2000//
+/r_readfits.pro/1.1/Tue Aug 26 15:05:44 2003//
+/rdis.pro/1.1/Mon Apr 10 16:20:42 2000//
+/rdis_setup.pro/1.1/Mon Apr 10 16:20:42 2000//
+/rdis_zoom.pro/1.1/Mon Apr 10 16:20:42 2000//
+/rel_photo_region.pro/1.1/Mon Apr 10 16:20:42 2000//
+/row_check.pro/1.1/Mon Apr 10 16:20:42 2000//
+/row_kludge.pro/1.1/Mon Apr 10 16:20:42 2000//
+/scanimages.pro/1.1/Mon Apr 10 16:20:42 2000//
+/scircle.pro/1.1/Mon Apr 10 16:20:42 2000//
+/set_flags.pro/1.1/Tue Jun  6 12:37:09 2000//
+/set_flags3.pro/1.2/Mon Nov 19 17:46:07 2001//
+/sflag_select.pro/1.1/Mon Apr 10 16:20:42 2000//
+/skypatrol.pro/1.1/Tue Aug 29 14:47:04 2000//
+/square98.pro/1.1/Mon Apr 10 16:20:42 2000//
+/str_sep.pro/1.1/Tue Sep 23 21:53:42 2003//
+/surf.pro/1.1/Mon Apr 10 16:20:42 2000//
+/tvim2.pro/1.1/Mon Apr 10 16:20:42 2000//
+/tvim2_scl.pro/1.1/Mon Apr 10 16:20:42 2000//
+/tvprint.pro/1.1/Mon Apr 10 16:20:42 2000//
+/tycho_check.pro/1.1/Mon Apr 10 16:20:42 2000//
+/y_row_check.pro/1.1/Mon Apr 10 16:20:42 2000//
+/y_row_kludge.pro/1.1/Mon Apr 10 16:20:42 2000//
+D/UTIL////
+D/ccd_stats////
+D/dss_match////
+D/fit////
+D/focus////
+D/gsc////
+D/htm////
+D/photom////
+D/plot////
+D/postage////
+D/psf////
+D/query_burst////
+D/radec_plot////
+D/sex////
+D/tpoint////
+D/usno////
+/rotse_setup.pro/1.8/Fri Jan 30 16:32:23 2004//
+D/nsvs////
+/gen_rotse3_subimages.pro/1.1/Tue Sep 21 18:49:45 2004//
+D/rphot////
+D/grb_plots////
+D/latex////
+D/rotse_dao////
+/rotse_query_simbad.pro/1.2/Tue Mar 21 22:33:04 2006//
+D/mpfit////
+D/igm////
+/make_rotse3_subimage.pro/1.15/Mon Apr 28 16:14:53 2008//
+/find_rotse3_files.pro/1.6/Mon May 12 21:47:03 2008//

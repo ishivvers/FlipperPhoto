@@ -1,0 +1,114 @@
+### GETTING SET UP ###
+
+Put the included files in your IDL path, or run IDL from that
+directory.
+
+RPHOT makes use of the umrotse_idl and goddard IDL procedures, so
+those should be in your IDL path as well.
+
+There is a C file, local_sky_sub.c, which must be compiled as a shared
+object. A .so file compiled on a linux Pentium 4 is included,
+otherwise look at the .c file for instructions.
+
+In the function "get_local_sky.pro", the variable "sopath" must be set
+to the path for the .so file compiled above.
+
+For ease of use, images in $base/image/ should have their .cobj files
+located in in $base/prod/.
+
+### RUNNING RPHOT ###
+
+Start IDL
+Start rphot with:
+
+IDL> rphot,data
+
+You will retain access to the IDL command line. The parameter "data"
+should be undefined; it provides access to the data structure.
+
+From the RPHOT "Load" menu, select "Choose Images..." This launches a
+file finder which allows you to select images to work with. You can
+select multiple images.
+
+From the RPHOT "Load" menu, select "Choose Ref Image..." This launches
+a file finder which allows you to select a single image to serve as
+the reference image. You will use this image to select the target and
+fiducial reference stars. It should be your best (deepest, best PSF)
+image, and may be a coadd.
+
+From the RPHOT "Object" menu, select "Choose Target..." This will load
+and display the reference image, and open a window to select the
+target. You may either enter the exact coordinates and click "Show",
+or zoom in (drag a box in the image display, etc.) and click on a
+target.
+
+From the RPHOT "Object" menu, select "Choose Refstars..." This launch
+a window similar to the one above. Use this to select nearby reference
+stars. Avoid saturated objects, blends, etc. You may use the "Auto
+Select" button to automatically choose refstar candidates. Click
+"Select by Cursor" to toggle refstar selection.
+
+From the RPHOT "Display" menu, select "Display Image..." This brings
+up a window with the list of images to choose from. Before selecting
+an new image, you should first edit the sky annulus pixel mask for the
+reference image shown in the small lower left window if necessary. If
+the object shown here is not the target (no green circle), switch the
+top bar mode from "zoom" to "examine" and click on the target in the
+main image. This mask will be propagated to each image. You can
+add/remove pixels from the mask with the left/right mouse buttons one
+by one. If you have a mouse wheel, you can add/remove a 3x3
+section. Now click on the name of an image in the "Choose Image"
+window. RPHOT will automatically locate the target, reference stars,
+perform aperture photometry, and update the plot. Click through image
+by image to look for problems, or click the "Do All" button to run
+through everything.
+
+Change the top bar from "zoom" to "examine" to change the plotting
+options (eg. plot magnitudes instead of flux).
+
+To calibrate the relative magnitudes to a given photometric system,
+select "Calibrate..." from the RPHOT "Object" menu, then select a file
+with the secondary standard star positions and magnitudes. This file
+must have the following format:
+
+R
+        RA         DEC    Rmag   emag
+ 13.601000    1.177275  19.254  0.136
+ 13.601100    1.272470  19.056  0.162
+ 13.601683    1.174317  17.549  0.021
+   ...          ...       ...    ...
+
+Where the first line tells which filter you're calibrating to. To
+convert data provided by Henden to this format, use "henden_list.pro"
+
+
+*** Other features ***
+
+In the "examine" mode, you can click on objects in the displayed image
+to see them in the close up window and to plot their light curves
+
+You can click on light curve points to bring up the corresponding
+image.
+
+To set the burst time for a GRB:
+
+IDL> (*data).mjd=julday(10,6,2004,12,18,08)-2400000.5d
+
+To bin data points, first indicate which points are to be in which bin
+by setting (*(*data).images).sumind to an array with the bin indices:
+
+IDL> (*(*data).images).sumind=fix(indgen(n_elements(*(*data).images))/10)
+
+Set the index to -1 for any images you don't care to sum (this will
+also remove them from the unbinned plots). Then toggle the binning
+with:
+
+IDL> (*data).dosum=1  ;; binning on
+IDL> (*data).dosum=0  ;; binning off
+
+Re-plot the data to see the change.
+
+**************************
+
+Contact Robert Quimby (quimby@astro.as.utexas.edu) if you have any
+comments, questions, suggestions. Enjoy.
