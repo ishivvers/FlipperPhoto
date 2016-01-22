@@ -1,23 +1,33 @@
-"""
-A set of examples to get everyone on the same page
-and started off.
+"""A set of examples to get everyone on the same page and started off.
 
 -Isaac, Jan. 15
 """
-import matplotlib.pyplot as plt
-from matplotlib import cm
-from matplotlib.colors import LogNorm
-import numpy as np
-from astropy.io import fits as pf
-from subprocess import Popen, PIPE
-from cStringIO import StringIO
+import os
 import re
+import numpy as np
+import matplotlib.pyplot as plt
+
+from astropy.io import fits as pf
+from cStringIO import StringIO
+from matplotlib import cm
+from matplotlib.colors import LogNorm 
+from subprocess import Popen, PIPE
+
+from conf import FIXTURE_DIR
 
 
-def get_zipped_fitsfile( pathname ):
-    """
-    Open a zipped fits file.
-     Returns: astropy.io.fits / pyfits object
+def get_zipped_fitsfile(pathname):
+    """Open a zipped fits file.
+
+    Parameters
+    ----------
+    pathname : str
+        filepath to zipped fits file
+
+    Returns
+    -------
+    hdu : astropy.io.fits.hdu.image.PrimaryHDU
+        pyFits object
     """
     p = Popen(["zcat", pathname], stdout=PIPE)
     hdu = pf.open( StringIO(p.communicate()[0]) )
@@ -25,16 +35,26 @@ def get_zipped_fitsfile( pathname ):
     hdu.verify('fix')
     return hdu
 
-def plot_one_image( pathname='/media/raid0/Data/nickel/nickel150609/data/tfn150609.d206.sn2014c.V.fit' ):
-    """
-    Plot a KAIT or Nickel image using matplotlib, using scaling parameters
-     that generally work well.
+exampleIm = os.path.join(FIXTURE_DIR, 'nickel', 'tfn150609.d206.sn2014c.V.fit')
+
+def plot_one_image(pathname=exampleIm):
+    """Plot first image of single fits file.
+    
+    Parameters
+    ----------
+    pathname : str, optional
+        Defaults to the fixture "tfn150609.d206.sn2014c.V.fit"
+
+    Note
+    ----
+    Uses matplotlib.colors.LogNorm to scale data using 50th and 99.9th 
+    percentile as ``vmin``, ``vmax`` respectively
     """
     try:
-        hdu = pf.open( pathname )
+        hdu = pf.open(pathname)
     except IOError:
         # probably a zcatted image
-        hdu = get_zipped_fitsfile( pathname )
+        hdu = get_zipped_fitsfile(pathname)
 
     # the header is accessible like a dictionary:
     header = hdu[0].header
@@ -43,13 +63,24 @@ def plot_one_image( pathname='/media/raid0/Data/nickel/nickel150609/data/tfn1506
 
     # the super simple way to inspect the file within Python is via imshow, but
     #  fancier alternatives exist too.
-    plt.imshow( data, cmap=cm.gray, norm=LogNorm(np.percentile(data,50), np.percentile(data,99.9)) )
+    vmin = np.percentile(data, 50)
+    vmax = np.percentile(data, 99.9)
+    plt.imshow(data, cmap=cm.gray, norm=LogNorm(vmin, vmax))
     plt.show()
 
-def parse_insgenlog( pathname ):
-    """
-    Parse a KAIT-produced insgen.log file (or zipped version, insgen.log.Z).
-     Returns: a dictionary of file name and observed object.
+ 
+def parse_insgenlog(pathname):
+    """Parse a KAIT-produced insgen.log file.
+    
+    Parameters
+    ----------
+    pathname : str
+        filepath to log file, accepts *.log and *.log.Z (zipped) files.
+    
+    Returns
+    -------
+    outd : dict
+        Dictionary of the form {[filename (STR)] : [observed object (STR)]}
     """
     outd = {}
     if '.Z' in pathname:
