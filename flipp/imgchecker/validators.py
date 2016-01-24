@@ -2,6 +2,7 @@ import numpy as np
 from astropy.io import fits
 
 class baseChecker(object):
+    """Contains methods for good/bad image validation."""
 
     def is_processed(self):
         """Check if image has been bias and flat field subtracted.
@@ -14,14 +15,14 @@ class baseChecker(object):
         raise NotImplementedError
 
     def binImage(self, data, n, margin = 0):
-        """Bin 2-D image into n x n near square arrays.
+        """Bin 2-D image into n by n sub images.
         
         Parameters
         ----------
         data : np.array
-            2-D array of 
-        n : TYPE
-            Description
+            2-D array of image data
+        n : int
+            dimensions of grid of subimages
         margin : int, optional
             margin from the sides to consider
         
@@ -29,6 +30,18 @@ class baseChecker(object):
         ------- 
         bins : list,
             list of near-or-perfect-square 2-D np.arrays
+
+        Example
+        -------
+
+        .. code-block:: python
+
+            import numpy as np
+            from flipp.validators import baseChecker
+            checker = baseChecker()
+            data = np.arange(36).reshape(6, 6)
+            checker.binImage(data, n = 2, margin = 1)
+
         """
         if margin > 0:
             data = data[margin:-1*margin, margin:-1*margin]
@@ -40,7 +53,24 @@ class baseChecker(object):
         return bins
 
     def checkBGBrightness(self, data, n=100, margin=30):
-        """."""
+        """Compare darkest pixels of n*n sub images.
+        
+        Parameters
+        ----------
+        data : np.array
+            2-D array of image data
+        n : int, optional
+            square root of total number of bins to create
+            defaults to 100
+        margin : int, optional
+            margins to apply to binning procedure
+            defaults to 30
+
+        Returns
+        -------
+        bool
+            True if image is "good", False otherwise
+        """
 
         # Bin image 
         bins = self.binImage(data, n, margin)
@@ -73,7 +103,8 @@ class baseChecker(object):
         return True
 
     def run(self):
-        self.is_processed()
+        """Run all validation methods."""
+        pass
 
 class KaitChecker(baseChecker):
 
