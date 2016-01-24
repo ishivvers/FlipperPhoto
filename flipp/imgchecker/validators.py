@@ -71,6 +71,14 @@ class baseChecker(object):
             return False
 
         return True
-        
+
     def run(self):
         self.is_processed()
+
+class KaitChecker(baseChecker):
+
+    pass
+
+class NickelChecker(baseChecker):
+
+    pass
