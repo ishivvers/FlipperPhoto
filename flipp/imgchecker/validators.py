@@ -48,14 +48,29 @@ class baseChecker(object):
         for b in bins:
             flat = b.flatten()
             flat.sort()
-            # Take average of Darkest 10% of pixels
+            # Take median of darkest 10% 
             avgDark = np.median(flat[:int(.1*flat.shape[0])])
             minAvgs.append(avgMin)
 
         minAvgs = np.array(minAvgs)
-        
-        
+        st = minAvgs.std()
+        # Count the number of bins 2 std deviations away
+        # Mask for dark outliers
+        dark = mask[minAvgs < 2*st]
+        # Mask for bright outliers
+        bright = mask[minAvgs > 2*st]
 
+        # DEFINE THRESHOLD HERE, TEMPORARY PLACEHOLDER VALUE
+        # Abnormally dark values are much less expected
+        # So threshold should be much more aggressive than for brights
+        if len(dark) >= .0125*(n**2):
+            return False
 
+        # DEFINE THRESHOLD HERE, TEMPORARY PLACEHOLDER VALUE
+        if len(bright) >= 0.025*(n**2):
+            return False
+
+        return True
+        
     def run(self):
         self.is_processed()
