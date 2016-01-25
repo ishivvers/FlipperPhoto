@@ -15,7 +15,7 @@ class baseChecker(object):
         raise NotImplementedError
 
     def binImage(self, data, n, margin = 0):
-        """Bin 2-D image into n by n sub images.
+        """Bin 2-D img data into n x n grid of sub-images.
         
         Parameters
         ----------
@@ -80,15 +80,15 @@ class baseChecker(object):
             flat.sort()
             # Take median of darkest 10% 
             avgDark = np.median(flat[:int(.1*flat.shape[0])])
-            minAvgs.append(avgMin)
+            minAvgs.append(avgDark)
 
         minAvgs = np.array(minAvgs)
         st = minAvgs.std()
         # Count the number of bins 2 std deviations away
         # Mask for dark outliers
-        dark = mask[minAvgs < 2*st]
+        dark = minAvgs[minAvgs < 2*st]
         # Mask for bright outliers
-        bright = mask[minAvgs > 2*st]
+        bright = minAvgs[minAvgs > 2*st]
 
         # DEFINE THRESHOLD HERE, TEMPORARY PLACEHOLDER VALUE
         # Abnormally dark values are much less expected
