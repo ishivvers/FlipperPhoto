@@ -1,9 +1,17 @@
+import os
 import numpy as np
+from astropy.io import fits
 from unittest import TestCase
 
 from flipp.imgchecker import validators
+from conf import FIXTURE_DIR
 
 class TestBaseChecker(TestCase):
+
+    def setUp(self):
+        exampleIm = os.path.join(FIXTURE_DIR, 'nickel', 'tfn150609.d206.sn2014c.V.fit')
+        self.nickelImg = fits.open(exampleIm)[0].data
+
 
     def test_binImage(self):
         """Integration testing for binImage method used to grid subimages."""
@@ -30,5 +38,9 @@ class TestBaseChecker(TestCase):
         badImg = np.arange(1024**2).reshape(1024, 1024)
         checker = validators.baseChecker()
 
+        # A color gradient is a bad image by definition
         self.assertFalse(checker.checkBGBrightness(badImg))
-        
+
+        # Nickel fixture is known to be good image
+        # print self.nickelImg
+        self.assertTrue(checker.checkBGBrightness(self.nickelImg))
