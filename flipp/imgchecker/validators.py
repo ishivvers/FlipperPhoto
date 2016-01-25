@@ -84,11 +84,13 @@ class baseChecker(object):
 
         minAvgs = np.array(minAvgs)
         st = minAvgs.std()
+        # if spread of dark values too big, either too many bins
+        # or gradient-like image
         # Count the number of bins 2 std deviations away
         # Mask for dark outliers
-        dark = minAvgs[minAvgs < 2*st]
+        dark = minAvgs[minAvgs < minAvgs.mean() - 2*st]
         # Mask for bright outliers
-        bright = minAvgs[minAvgs > 2*st]
+        bright = minAvgs[minAvgs > minAvgs.mean() + 2*st]
 
         # DEFINE THRESHOLD HERE, TEMPORARY PLACEHOLDER VALUE
         # Abnormally dark values are much less expected
