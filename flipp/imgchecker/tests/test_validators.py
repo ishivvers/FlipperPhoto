@@ -24,3 +24,11 @@ class TestBaseChecker(TestCase):
         product = lambda x, y : x*y
         # with margins of 100, any element will work by construction
         self.assertTrue(product(*bins[50].shape) > product(*margin_bins[50].shape))
+
+    def test_checkBGBrightness(self):
+        """Integration testing for checkBGBrightness method."""
+        badImg = np.arange(1024**2).reshape(1024, 1024)
+        checker = validators.baseChecker()
+
+        self.assertFalse(checker.checkBGBrightness(badImg))
+        
