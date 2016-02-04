@@ -33,14 +33,14 @@ class TestBaseChecker(TestCase):
         # with margins of 100, any element will work by construction
         self.assertTrue(product(*bins[50].shape) > product(*margin_bins[50].shape))
 
-    def test_checkBGBrightness(self):
-        """Integration testing for checkBGBrightness method."""
-        badImg = np.arange(1024**2).reshape(1024, 1024)
-        checker = validators.baseChecker()
+    # def test_checkBGBrightness(self):
+    #     """Integration testing for checkBGBrightness method."""
+    #     badImg = np.arange(1024**2).reshape(1024, 1024)
+    #     checker = validators.baseChecker()
 
-        # A color gradient is a bad image by definition
-        self.assertFalse(checker.checkBGBrightness(badImg))
+    #     # A color gradient is a bad image by definition
+    #     self.assertFalse(checker.checkBGBrightness(badImg))
 
-        # Nickel fixture is known to be good image
-        # print self.nickelImg
-        self.assertTrue(checker.checkBGBrightness(self.nickelImg))
+    #     # Nickel fixture is known to be good image
+    #     # print self.nickelImg
+    #     self.assertTrue(checker.checkBGBrightness(self.nickelImg))

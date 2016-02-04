@@ -52,57 +52,15 @@ class baseChecker(object):
             bins.extend(np.array_split(cut, n, axis=1))
         return bins
 
-    def checkBGBrightness(self, data, n=100, margin=30):
-        """Compare darkest pixels of n*n sub images.
-        
-        Parameters
-        ----------
-        data : np.array
-            2-D array of image data
-        n : int, optional
-            square root of total number of bins to create
-            defaults to 100
-        margin : int, optional
-            margins to apply to binning procedure
-            defaults to 30
+    def countSourceImgs(self, n=10):
+        # Pseudo code
+        # num_objects = sextractor(fitsfile).num_objects
+        # if num_objects <= n:
+        #     return False
+        # else:
+        #     return True
 
-        Returns
-        -------
-        bool
-            True if image is "good", False otherwise
-        """
-
-        # Bin image 
-        bins = self.binImage(data, n, margin)
-        minAvgs = []
-        for b in bins:
-            flat = b.flatten()
-            flat.sort()
-            # Take median of darkest 10% 
-            avgDark = np.median(flat[:int(.1*flat.shape[0])])
-            minAvgs.append(avgDark)
-
-        minAvgs = np.array(minAvgs)
-        st = minAvgs.std()
-        # if spread of dark values too big, either too many bins
-        # or gradient-like image
-        # Count the number of bins 2 std deviations away
-        # Mask for dark outliers
-        dark = minAvgs[minAvgs < minAvgs.mean() - 2*st]
-        # Mask for bright outliers
-        bright = minAvgs[minAvgs > minAvgs.mean() + 2*st]
-
-        # DEFINE THRESHOLD HERE, TEMPORARY PLACEHOLDER VALUE
-        # Abnormally dark values are much less expected
-        # So threshold should be much more aggressive than for brights
-        if len(dark) >= .0125*(n**2):
-            return False
-
-        # DEFINE THRESHOLD HERE, TEMPORARY PLACEHOLDER VALUE
-        if len(bright) >= 0.025*(n**2):
-            return False
-
-        return True
+        raise NotImplementedError
 
     def run(self):
         """Run all validation methods."""
