@@ -10,12 +10,13 @@ import os
 SEXCONFPATH = '/usr/share/sextractor'
 def simple_extract( pathname ):
     base,ext = os.path.splitext( pathname )
-    objfile = base + "_sobj.fit"
-    skyfile = base + "_sky.fit"
+    catalog = base + "_sources.txt"
+    objfile = base + "_objects.fit"
+    bkgfile = base + "_background.fit"
     extractor_args = " -c %s/default.sex"%SEXCONFPATH +\
                      " -PARAMETERS_NAME %s/default.param"%SEXCONFPATH +\
                      " -FILTER_NAME %s/gauss_3.0_5x5.conv"%SEXCONFPATH +\
-                     " -CATALOG_NAME %s"%objfile +\
-                     " -CHECKIMAGE_NAME %s"%skyfile
+                     " -CATALOG_NAME %s"%catalog +\
+                     " -CHECKIMAGE_TYPE OBJECTS,BACKGROUND -CHECKIMAGE_NAME %s,%s"%(objfile,bkgfile)
     o,e = Popen( "sextractor "+pathname+extractor_args, shell=True, stdout=PIPE, stderr=PIPE ).communicate()
     return o
