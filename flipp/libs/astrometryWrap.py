@@ -24,7 +24,7 @@ def astrometry_kait( filepath ):
     height=500 #image height in pixel
     tmpfilepath = "./"
     workdir = "./"
-    conffile = "/usr/local/astrometry/astrometry.cfg"
+    conffile = "/usr/local/astrometry/etc/astrometry.cfg"
     
     # first make sure the fits header is fixed up appropriately.
     ## For now, this overwrites the original file, so DO NOT PERFORM
@@ -35,14 +35,15 @@ def astrometry_kait( filepath ):
     header = fileio.get_head( filepath )
 
     astrometry_args = " -3 %s"%header['RA'] + " -4 %s"%header["DEC"] + " -5 %f"%searchradius +\
-                      " --scale_units arcsecperpix -L %f"%pixscaleL + " -H %f"%pixscaleH +\
+                      " --scale-units arcsecperpix -L %f"%pixscaleL + " -H %f"%pixscaleH +\
                       " -D %s"%tmpfilepath + " -b %s"%conffile +\
-                      " -O -p -y -2  -t 1"
-
-    o,e = Popen("solve-field" + astrometry_args + filepath, shell=True, stdout=PIPE, stderr=PIPE).communicate()
+                      " -O -p -y -2  -t 1 --no-plots "
+    cmd = "solve-field" + astrometry_args + filepath
+    
+    o,e = Popen(cmd, shell=True, stdout=PIPE, stderr=PIPE).communicate()
 
     # rename the outputs (probably can put this into the configure files, actually)
-    base,ext = os.path.splitext( pathname )
+    base,ext = os.path.splitext( filepath )
     solvedfile = "%s.solved.fits"%base
     Popen("mv %s/%s.new %s/%s"%(workdir,base,workdir,solvedfile), shell=True)
     Popen("mv %s/%s.wcs %s/%s.wcs.fits"%(workdir,base,workdir,base), shell=True)
@@ -67,20 +68,20 @@ def astrometry_nickel( filepath ):
     height=1024#image height in pixel
     tmpfilepath = "./"
     workdir = "./"
-    conffile = "/usr/local/astrometry/astrometry.cfg"
+    conffile = "/usr/local/astrometry/etc/astrometry.cfg"
     
     # pull relevant info out of the header
     header = fileio.get_head( filepath )
 
     astrometry_args = " -3 %s"%header['RA'] + " -4 %s"%header["DEC"] + " -5 %f"%searchradius +\
-                      " --scale_units arcsecperpix -L %f"%pixscaleL + " -H %f"%pixscaleH +\
+                      " --scale-units arcsecperpix -L %f"%pixscaleL + " -H %f"%pixscaleH +\
                       " -D %s"%tmpfilepath + " -b %s"%conffile +\
-                      " -O -p -y -2  -t 1"
-
+                      " -O -p -y -2  -t 1 --no-plots "
+    
     o,e = Popen("solve-field" + astrometry_args + filepath, shell=True, stdout=PIPE, stderr=PIPE).communicate()
 
     # rename the outputs (probably can put this into the configure files, actually)
-    base,ext = os.path.splitext( pathname )
+    base,ext = os.path.splitext( filepath )
     solvedfile = "%s.solved.fits"%base
     Popen("mv %s/%s.new %s/%s"%(workdir,base,workdir,solvedfile), shell=True)
     Popen("mv %s/%s.wcs %s/%s.wcs.fits"%(workdir,base,workdir,base), shell=True)
