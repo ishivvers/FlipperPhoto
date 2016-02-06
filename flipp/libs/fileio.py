@@ -1,7 +1,8 @@
-"""A set of examples to get everyone on the same page and started off.
+"""Library for file I/O and related tasks.
 
--Isaac, Jan. 15
+-Isaac, Feb. 5
 """
+
 import os
 import re
 import numpy as np
@@ -35,8 +36,27 @@ def get_zipped_fitsfile(pathname):
     hdu.verify('fix')
     return hdu
 
-exampleIm = os.path.join(FIXTURE_DIR, 'nickel', 'tfn150609.d206.sn2014c.V.fit')
+def get_head(pathname):
+    """Pull the header out of a fitsfile.
 
+    Parameters
+    ----------
+    pathname : str
+        filepath to fitsfile
+
+    Returns
+    -------
+    hdu : astropy.io.fits.hdu.image.PrimaryHDU
+        pyFits object
+    """
+    try:
+        hdu = pf.open(pathname)
+    except IOError:
+        # probably a zcatted image
+        hdu = get_zipped_fitsfile(pathname)
+    return hdu[0].header
+
+exampleIm = os.path.join(FIXTURE_DIR, 'nickel', 'tfn150609.d206.sn2014c.V.fit')
 def plot_one_image(pathname=exampleIm):
     """Plot first image of single fits file.
     
@@ -93,3 +113,30 @@ def parse_insgenlog(pathname):
             fname, obj = line.split()[-2:]
             outd[fname] = obj
     return outd
+
+
+def fix_kait_header(pathname,outpathname=None):
+    """Fix the headers in a KAIT image to be FITS-compliant,
+    so that other Python codes play with them nicely.  Required before
+    running astrometry solver.
+    
+    Parameters
+    ----------
+    pathname : str
+        filepath to KAIT fits image to correct, accepts *.fit (or similar), or *.fit.Z (or similar).
+    
+    Returns
+    -------
+    newpathname : str
+        filepath to fixed image.
+    """
+    try:
+        hdu = pf.open(pathname)
+    except IOError:
+        # probably a zcatted image
+        hdu = get_zipped_fitsfile(pathname)
+    base,ext = os.path.splitext( pathname.strip('.Z') )
+    if outpathname == None:
+        outpathname = base + '.fixed' + ext
+    hdu.writeto( outpathname, clobber=True, output_verify='fix' )
+    return outpathname
