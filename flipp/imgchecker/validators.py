@@ -59,17 +59,18 @@ class baseChecker(object):
         #     return False
         # else:
         #     return True
-
         raise NotImplementedError
 
-    def run(self):
+    def run(self, min_sources):
         """Run all validation methods."""
-        pass
+        self.countSourceImgs(n=min_sources)
 
 class KaitChecker(baseChecker):
 
-    pass
+    def headerCheck(self):
+        pass
 
 class NickelChecker(baseChecker):
 
-    pass
+    def headerCheck(self):
+        pass
