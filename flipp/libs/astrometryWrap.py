@@ -36,12 +36,14 @@ def astrometry_kait( filepath, outfilepath ):
 
     astrometry_args = " -3 %s"%header['RA'] + " -4 %s"%header["DEC"] + " -5 %f"%searchradius +\
                       " --scale-units arcsecperpix -L %f"%pixscaleL + " -H %f"%pixscaleH +\
-                      " -D %s"%outfilepath + "-N %s"%solvedfile + " -b %s"%conffile +\
+                      " -D %s"%outfilepath + " -N %s"%solvedfile + " -b %s"%conffile +\
                       " -O -p -y -2  -t 1 --no-plots "
     cmd = "solve-field" + astrometry_args + filepath
+    print cmd
     o,e = Popen(cmd, shell=True, stdout=PIPE, stderr=PIPE).communicate()
-
-    return outfilepath + "/" + solvedfile
+    print 'out:',o
+    print 'err:',e
+    return solvedfile
 
 
 def astrometry_nickel( filepath, outfilepath ):
@@ -68,8 +70,11 @@ def astrometry_nickel( filepath, outfilepath ):
 
     astrometry_args = " -3 %s"%header['RA'] + " -4 %s"%header["DEC"] + " -5 %f"%searchradius +\
                       " --scale-units arcsecperpix -L %f"%pixscaleL + " -H %f"%pixscaleH +\
-                      " -D %s"%outfilepath + "-N %s"%solvedfile + " -b %s"%conffile +\
+                      " -D %s"%outfilepath + " -N %s"%solvedfile + " -b %s"%conffile +\
                       " -O -p -y -2  -t 1 --no-plots "
-    o,e = Popen("solve-field" + astrometry_args + filepath, shell=True, stdout=PIPE, stderr=PIPE).communicate()
-
+    cmd = "solve-field" + astrometry_args + filepath
+    print cmd
+    o,e = Popen(cmd, shell=True, stdout=PIPE, stderr=PIPE).communicate()
+    print 'out:',o
+    print 'err:',e
     return solvedfile
