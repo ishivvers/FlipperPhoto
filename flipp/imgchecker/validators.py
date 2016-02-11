@@ -72,7 +72,10 @@ class baseChecker(object):
             self.workingImage = astrometryWrap.astrometry_nickel( self.workingImage, self.tempfolder )
 
     def moveFile(self):
-        """Move a verified file to permanent location."""
+        """Move a verified file to permanent location.
+
+        For now this simply uses /media/LocalStorage/ as a testbed.
+        """
         header = fileio.get_head( self.workingImage )
         # pull info from the headers, formatted differently for kait and nickel
         if self.telescope == 'kait':
@@ -117,11 +120,11 @@ class KaitChecker(baseChecker):
         self.telescope = 'kait'
         self.inputImage = inputImage
         self.tempfolder = "/media/LocalStorage/tmp"
-        self.donefolder = "/media/LocalStorage/reduced_images/kait" # should later be changed to /raid0/...
+        self.donefolder = "/media/LocalStorage/reduced_images/kait" # here as a testbed for now
 
 class NickelChecker(baseChecker):
     def __init__(self, inputImage):
         self.telescope = 'nick'
         self.inputImage = inputImage
         self.tempfolder = "/media/LocalStorage/tmp"
-        self.donefolder = "/media/LocalStorage/reduced_images/nickel" # should later be changed to /raid0/...
+        self.donefolder = "/media/LocalStorage/reduced_images/nickel" # here as a testbed for now
