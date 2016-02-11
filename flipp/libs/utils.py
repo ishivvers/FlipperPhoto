@@ -1,7 +1,17 @@
 from fabric.api import local
 
 class ShellCmd(object):
-    """Convenience class for shell functions"""
+    """Generic bash command wrapper with some option/argument parsing and giving
+     a common api to :method:`fabric.api.local` and :method:`fabric.api.run`
+
+    Note
+    ----
+    This is meant to be subclassed with a :attr:`cmd` value that 
+    corresponds to a valid bash command.  Commands run remotely may
+    contain global side effects such as file creation.  The subclass
+    should handle any expected side effects, retriving remote files
+    if necessary.
+    """
 
     cmd = ""
 
