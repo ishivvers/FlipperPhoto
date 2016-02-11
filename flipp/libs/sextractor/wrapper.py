@@ -19,16 +19,17 @@ class sextractorConfig(object):
     section_re = re.compile("\#(\-+)(\w|\s)+")
 
     def _conf2dict(self, path=default_sex):
-        d = {}
-        with open(path_or_buf) as f:
-            for l in f.readlines():
-                if 
+        with open(path) as f:
+            d = dict(filter(None, map(self.parse_sex_option, f.readlines())))
+        return d
 
     def parse_sex_option(self, s):
-        match = option_re.match(s)
+        """Returns either a null or 2-tuple of available arguments to feed into sextractor."""
+        match = self.option_re.match(s)
         if match:
             parts = re.split('\s+', s, 1)
-            return match.group(), value_re.match(parts[1]).group()
+            return match.group(), self.value_re.match(parts[1]).group()
+        return tuple()
 
 class sextractor(ShellCmd):
     """Sextractor wrapper with config built in."""
