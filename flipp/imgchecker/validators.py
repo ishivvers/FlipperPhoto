@@ -1,8 +1,14 @@
 import numpy as np
 from astropy.io import fits
+import os
+from flipp.lib import astrometryWrap
 
 class baseChecker(object):
     """Contains methods for good/bad image validation."""
+    
+    def __init__(self, inputImage):
+        self.tempfolder = "/media/LocalStorage/tmp"
+        self.inputImage = inputImage
 
     def is_processed(self):
         """Check if image has been bias and flat field subtracted.
@@ -61,15 +67,30 @@ class baseChecker(object):
         #     return True
 
         raise NotImplementedError
-
+    
+    def getAstrometry(self):
+        if self.telescope == 'kait':
+            self.workingImage = astrometryWrap.astrometry_kait( self.workingImage, self.tempfolder )
+        elif self.telescope == 'nick':
+            self.workingImage = astrometryWrap.astrometry_kait( self.workingImage, self.tempfolder )
+        
     def run(self):
         """Run all validation methods."""
-        pass
+        # move the file to the temp folder
+        self.workingImage = "%s/%s" %(self.tempfolder, os.path.basename(inputImage))
+        os.system( "cp %s %s"%(self.inputImage, self.workingImage) )
+        try:
+            self.getAstrometry()
+            return True
+        except:
+            return False
+        
+        
 
 class KaitChecker(baseChecker):
-
-    pass
+    def __init__(self):
+        self.telescope = 'kait'
 
 class NickelChecker(baseChecker):
-
-    pass
+    def __init__(self):
+        self.telescope = 'nick'
