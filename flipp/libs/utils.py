@@ -1,4 +1,4 @@
-from fabric.api import local
+from subprocess import Popen, PIPE
 
 class ShellCmd(object):
     """Generic bash command wrapper with some option/argument parsing and giving
@@ -27,8 +27,8 @@ class ShellCmd(object):
             cmdkwargs = ' -'.join(pieces)
             
         base = "%s %s %s" %(base, cmdargs, cmdkwargs)
-        return 
+        return base
 
     def run(self, *args, **kwargs):
         cmd = self.configure(*args, **kwargs)
-        return local(cmd, capture=True)
+        return Popen(cmd, shell=True, stdout=PIPE, stderr=PIPE).communicate()
