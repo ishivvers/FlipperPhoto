@@ -20,10 +20,10 @@ class sextractorConfig(object):
 
     def _conf2dict(self, path=default_sex):
         with open(path) as f:
-            d = dict(filter(None, map(self.parse_sex_option, f.readlines())))
+            d = dict(filter(None, map(self._parse_sex_option, f.readlines())))
         return d
 
-    def parse_sex_option(self, s):
+    def _parse_sex_option(self, s):
         """Returns either a null or 2-tuple of available arguments to feed into sextractor."""
         match = self.option_re.match(s)
         if match:
