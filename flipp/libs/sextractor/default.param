@@ -1,7 +1,7 @@
-#NUMBER                   Running object number                                    
+NUMBER                   Running object number                                    
 #EXT_NUMBER               FITS extension number                                    
 #FLUX_ISO                 Isophotal flux                                            [count]
-#FLUXERR_ISO              RMS error for isophotal flux                              [count]
+FLUXERR_ISO              RMS error for isophotal flux                              [count]
 #MAG_ISO                  Isophotal magnitude                                       [mag]
 #MAGERR_ISO               RMS error for isophotal magnitude                         [mag]
 #FLUX_ISOCOR              Corrected isophotal flux                                  [count]
@@ -12,8 +12,8 @@
 #FLUXERR_APER             RMS error vector for aperture flux(es)                    [count]
 #MAG_APER                 Fixed aperture magnitude vector                           [mag]
 #MAGERR_APER              RMS error vector for fixed aperture mag.                  [mag]
-#FLUX_AUTO                Flux within a Kron-like elliptical aperture               [count]
-#FLUXERR_AUTO             RMS error for AUTO flux                                   [count]
+FLUX_AUTO                Flux within a Kron-lwike elliptical aperture               [count]
+FLUXERR_AUTO             RMS error for AUTO flux                                   [count]
 #MAG_AUTO                 Kron-like elliptical aperture magnitude                   [mag]
 #MAGERR_AUTO              RMS error for AUTO magnitude                              [mag]
 #FLUX_PETRO               Flux within a Petrosian-like elliptical aperture          [count]
@@ -36,7 +36,7 @@
 #VECTOR_SOMFIT            Position vector of the winning SOM node                  
 #KRON_RADIUS              Kron apertures in units of A or B                        
 #PETRO_RADIUS             Petrosian apertures in units of A or B                   
-#BACKGROUND               Background at centroid position                           [count]
+BACKGROUND               Background at centroid position                           [count]
 #THRESHOLD                Detection threshold above background                      [count]
 #FLUX_MAX                 Peak flux above background                                [count]
 #ISOAREA_IMAGE            Isophotal area above Analysis threshold                   [pixel**2]
@@ -182,7 +182,7 @@
 #ISO5                     Isophotal area at level 5                                 [pixel**2]
 #ISO6                     Isophotal area at level 6                                 [pixel**2]
 #ISO7                     Isophotal area at level 7                                 [pixel**2]
-#FLAGS                    Extraction flags                                         
+FLAGS                    Extraction flags                                         
 #FLAGS_WEIGHT             Weighted extraction flags                                
 #FLAGS_WIN                Flags for WINdowed parameters                            
 #IMAFLAGS_ISO             FLAG-image flags OR'ed over the iso. profile             
