@@ -6,6 +6,7 @@ on heracles.
 from subprocess import Popen, PIPE
 import fileio
 import os
+from conf import PROJECT_DIR 
 
 SEXCONFPATH = '/usr/share/sextractor'
 def simple_extract( pathname ):

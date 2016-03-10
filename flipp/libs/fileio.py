@@ -14,8 +14,6 @@ from matplotlib import cm
 from matplotlib.colors import LogNorm 
 from subprocess import Popen, PIPE
 
-# How should we structure this so that I can import
-#  this library from elsewhere in the code?
 from conf import FIXTURE_DIR 
 
 
