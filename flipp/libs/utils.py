@@ -17,16 +17,16 @@ class ShellCmd(object):
 
     def configure(self, *args, **kwargs):
         """."""
-        base = self.cmd
+        base = str(self.cmd)
         cmdargs, cmdkwargs = "", ""
 
         if args:
             cmdargs = ' '.join(args)
         if kwargs:
-            pieces = [' '.join(k, v) for k, v in kwargs.iteritems()]
-            cmdkwargs = ' -'.join(pieces)
+            pieces = [' '.join([k, '"%s"' %(v)]) for k, v in kwargs.iteritems()]
+            cmdkwargs = " ".join(["-%s" %(s) for s in pieces])
             
-        base = "%s %s %s" %(base, cmdargs, cmdkwargs)
+        base = " ".join((base, cmdargs, cmdkwargs))
         return base
 
     def run(self, *args, **kwargs):
