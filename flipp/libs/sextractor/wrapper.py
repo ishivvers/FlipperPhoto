@@ -8,14 +8,13 @@ from tempfile import mktemp
 from astropy.io.fits import hdu
 from astropy.table import Table
 
-
 from flipp.libs.utils import ShellCmd
 from conf import SEXCONFPATH
 
 # ================
 # DEVELOPMENT NOTE
 # ================
-# WE SHOULD CREATE A /TMP/ FOR EACH OF THESE AS WELL WITH USER-SPECIFIED 
+# WE SHOULD CREATE A /TMP/ FOR EACH OF THESE AS WELL WITH USER-SPECIFIED
 # CONFIGURATION.  THERE OUGHT TO BE A CONFIG METHOD FOR EACH OF THESE
 # ALTERNATIVELY, YOU COULD STAY AGNOSTIC AND ASK FOR USER-SPECIFIED FILE
 # IMPLEMENTATION WISE, THIS WOULD REQUIRE HAVING THE ABILITY TO DO THE OPPOSITE
@@ -92,7 +91,7 @@ class Sextractor(sextractorConfig, ShellCmd):
         options.update(kwargs)
         img_file = self.getimgfile(filepath_or_buffer)
         stdout = self.run(img_file, **options)
-        
+
         # ===========================================================
         # Delete all CHECK Images for now, it doesn't seem like we're
         # using them.  If we want to use them, then modify this block
@@ -103,7 +102,3 @@ class Sextractor(sextractorConfig, ShellCmd):
         # Cleanup catalog file
         os.remove(options.get("CATALOG_NAME"))
         return catalog
-
-class Astrometry(ShellCmd):
-
-    pass
