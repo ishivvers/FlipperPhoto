@@ -14,9 +14,7 @@ from matplotlib import cm
 from matplotlib.colors import LogNorm 
 from subprocess import Popen, PIPE
 
-# How should we structure this so that I can import
-#  this library from elsewhere in the code?
-#from conf import FIXTURE_DIR 
+from conf import FIXTURE_DIR 
 
 
 def get_zipped_fitsfile(pathname):
@@ -58,8 +56,8 @@ def get_head(pathname):
         hdu = get_zipped_fitsfile(pathname)
     return hdu[0].header
 
-#exampleIm = os.path.join(FIXTURE_DIR, 'nickel', 'tfn150609.d206.sn2014c.V.fit')
-def plot_one_image(pathname):  #pathname=exampleIm):
+exampleIm = os.path.join(FIXTURE_DIR, 'nickel', 'tfn150609.d206.sn2014c.V.fit')
+def plot_one_image(pathname=exampleIm):
     """Plot first image of single fits file.
     
     Parameters
@@ -142,3 +140,5 @@ def fix_kait_header(pathname,outpathname=None):
         outpathname = base + '.fixed' + ext
     hdu.writeto( outpathname, clobber=True, output_verify='fix' )
     return outpathname
+
+

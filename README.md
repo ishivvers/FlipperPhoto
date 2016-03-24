@@ -53,10 +53,10 @@ These files have been flatfield-corrected, bias-corrected, and trimmed, but the 
   - examples of "good" images: 
    - ``/media/raid0/Data/kait/2015/May20/May5khhh.fts.Z``
    - ``/media/raid0/Data/nickel/nickel150609/data/tfn150609.d206.sn2014c.V.fit``
-  - Ready to begin
+  - UNDERWAY
  - For every good image, calculate the WCS using [astrometry.net](http://astrometry.net/use.html) code
-  - there is an installation of this code at ``/home/kait/software_instealled/astrometry/bin``, I will install it system-wide soon
-  - Ready to begin
+  - there is a system-wide installation now running
+  - SKELETON CODE IN REPO
  - After the WCS information is added to the image header, move the file to ``/media/raid0/Data/reduced_images/TELESCOPE/YYYYMMDD/*``, and rename the file to the following convention:
    - targetName_YYYYMMDD.dddd_k-or-n_filter_c.fit
     - use k or n to demarcate KAIT or Nickel
@@ -64,6 +64,6 @@ These files have been flatfield-corrected, bias-corrected, and trimmed, but the 
     - targetName from the file header
     - YYYYMMDD.dddd is observation date with decimal days (out to 4 decimal points)
     - include a c to mark this file as a fully calibrated image
-  - Ready to begin once above steps are done.
+  - SKELETON CODE IN REPO
  - to be continued...
 
