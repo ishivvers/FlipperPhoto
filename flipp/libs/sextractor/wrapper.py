@@ -75,7 +75,7 @@ class Sextractor(sextractorConfig, ShellCmd):
         return {"catalog" : dict_config.get('CATALOG_NAME', None),
             "check_imgs" : dict_config.get('CHECKIMAGE_NAME').split(',')}
 
-    def extract(self, filepath_or_buffer,**kwargs):
+    def extract(self, filepath_or_buffer, *args, **kwargs):
         """Run source-extractor (sextractor) on the given image.
 
         Note
@@ -90,7 +90,7 @@ class Sextractor(sextractorConfig, ShellCmd):
         options = self.set_defaults()
         options.update(kwargs)
         img_file = self.getimgfile(filepath_or_buffer)
-        stdout = self.run(img_file, **options)
+        stdout = self.run(img_file, *args, **options)
 
         # ===========================================================
         # Delete all CHECK Images for now, it doesn't seem like we're
