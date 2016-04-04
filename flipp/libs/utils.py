@@ -17,6 +17,8 @@ class ShellCmd(object):
     contain global side effects such as file creation.  The subclass
     should handle any expected side effects, retriving remote files
     if necessary.
+
+    Should consider replacing this with argparse and fabric.
     """
 
     cmd = ""
@@ -51,28 +53,17 @@ class ShellCmd(object):
         return base
 
     @classmethod
+    def clean(self):
+        """Do nothing by default.  A subclass implementation might
+        remove any temporary files, or do some post-processing."""
+        pass
+
+    @classmethod
     def run(cls, *args, **kwargs):
         cmd = cls.configure(*args, **kwargs)
-        return Popen(cmd, shell=True, stdout=PIPE, stderr=PIPE).communicate()
-
-class IMI(object):
-    """In-Memory-Image mixin"""
-
-    @classmethod
-    def getimgdir(self, filepath_or_buffer):
-        f = self.getimgfile(filepath_or_buffer)
-        return os.path.dirname(f)
-
-    @classmethod
-    def getimgfile(self, filepath_or_buffer):
-        fp = filepath_or_buffer
-        if isinstance(fp, str): return fp
-        if isinstance(fp, file): return fp.name
-        if isinstance(fp, hdu.hdulist.HDUList) or \
-            isinstance(fp, hdu.image.PrimaryHDU):
-            z = mktemp(suffix=".fits")
-            fp.writeto(z)
-            return z
+        msg = Popen(cmd, shell=True, stdout=PIPE, stderr=PIPE).communicate()
+        self.clean()
+        return msg
 
 class ZCat(ShellCmd):
 
@@ -84,12 +75,3 @@ class ZCat(ShellCmd):
         hdu = fits.open(StringIO(raw))
         hdu.verify("fix")
         return hdu
-
-def open_fits(fp):
-
-    try:
-        hdu = fits.open(fp)
-    except IOError:
-        hdu = ZCat.open(fp)
-
-    return hdu
