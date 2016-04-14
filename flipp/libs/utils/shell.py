@@ -8,9 +8,12 @@ python analogies of argument lists and keyword arguments.
 """
 
 import os
+import shutil
+
 from astropy.io import fits
 from subprocess import Popen, PIPE
 
+from tempfile import mktemp
 from conf import TELESCOPES
 
 # We may want to rewrite this to work around fabric
@@ -63,12 +66,11 @@ class shMixin(object):
         if args:
             cmdargs = ' '.join(args)
         if kwargs:
-            pieces = [' '.join([k, '"%s"' %(v)]) for k, v in kwargs.iteritems()]
+            pieces = [' '.join([k, '"%s"' %(v)]) if v else k for k, v in kwargs.iteritems()]
             cmdkwargs = " ".join(["-%s" %(s) for s in pieces])
 
         base = " ".join((base, cmdargs, cmdkwargs))
         return base
-
 
     @classmethod
     def process_cmd(cls, stdout, stderr):
@@ -112,12 +114,15 @@ class FitsIOMixin(object):
         """
         if isinstance(obj, basestring):
             # Handle filepaths
-            path = obj
             try:
                 image = fits.open(obj)
             except IOError:
                 self.image = ZCat.open(obj)
-            name = os.path.split(path)[1]
+            name = os.path.split(obj)[1]
+
+            path = mktemp(prefix="COPY-{0}".format(os.path.splitext(name)[0]),
+                suffix=".fits")
+            image.writeto(path)
 
         elif isinstance(obj, fits.hdu.hdulist.HDUList):
             # or isinstance(obj, fits.hdu.image.PrimaryHDU):
