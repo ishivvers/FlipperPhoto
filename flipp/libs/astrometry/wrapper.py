@@ -1,4 +1,4 @@
-# -*- coding : utf-8 -*-
+# -*- coding , utf-8 -*-
 """
 Astrometry applies a correction to coordinates in an image.
 This is done by searching for known objects in the image and then calculating
@@ -21,6 +21,8 @@ from studying the structure of the LEMON project.
 
 import os
 import re
+
+from collections import OrderedDict
 
 from tempfile import mktemp
 
@@ -54,27 +56,25 @@ class Astrometry(shMixin, FitsIOMixin):
         self.path = path
         self.image = image
         self.telescope = telescope_config
+        self.last_cmd = None
 
     @property
     def defaults(self):
-        default_values = {"-scale-units" : "arcsecperpix",
-            '-backend-config' : DEFAULT_CONF,
-            '-tweak-order' : 2,
-            '-overwrite' : '',
-            '-no-plots' : '',
-            #'-use-sextractor' : '',
-            #'-sextractor-config' : '"%s"' %(SEXCONFPATH),
-            "-ra" : self.image[0].header["RA"],
-            "-dec" : self.image[0].header["DEC"],
-            "-radius" : 0.3,
-            "-scale-low" : self.telescope['pixscaleL'],
-            "-scale-high" : self.telescope['pixscaleH'],
-            "-dir" : os.path.dirname(os.path.abspath(self.path)),
-            "-new-fits" : mktemp(suffix=".fits",
-                prefix = "SOLVED-%s" %(self.name)),
-            "-cpulimit" :  10,
-            }
-        return default_values
+        default_values = (("-scale-units" , "arcsecperpix"),
+            ('-backend-config' , DEFAULT_CONF),
+            ('-tweak-order' , 2),
+            ('-overwrite' , None),
+            ('-no-plots' , None),
+            ("-ra" , self.image[0].header["RA"]),
+            ("-dec" , self.image[0].header["DEC"]),
+            ("-radius" , 0.3),
+            ("-scale-low" , self.telescope['pixscaleL']),
+            ("-scale-high" , self.telescope['pixscaleH']),
+            ("-dir" , os.path.dirname(os.path.abspath(self.path))),
+            ("-new-fits" , mktemp(suffix=".fits", prefix = "SOLVED-%s" %(self.name))),
+            ("-sextractor-path" , "/usr/bin/sextractor"),
+            )
+        return OrderedDict(default_values)
 
     def get_output_path(self, config_dict):
         filedir = config_dict['-dir']
@@ -93,10 +93,12 @@ class Astrometry(shMixin, FitsIOMixin):
         args = self.update_args([self.path], args)
         options = self.update_kwargs(self.defaults, kwargs)
         outpath = self.get_output_path(options)
+        self.last_cmd = self.configure(*args, **options)
         output = self.sh(*args, **options)
 
         # We need to parse this output to determine whether or not
         # astrometry actually ran.
-        return output
-        if output:
+
+        # return output #fits.open(outpath)
+        if outpath:
             return fits.open(outpath)
