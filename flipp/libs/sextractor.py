@@ -75,9 +75,10 @@ class Sextractor(sextractorConfig, shMixin):
         return {"catalog" : dict_config.get('CATALOG_NAME', None),
             "check_imgs" : dict_config.get('CHECKIMAGE_NAME').split(',')}
 
-    def extract(self, filepath_or_buffer, *args, **kwargs):
+    def extract(self, filepath_or_buffer, flag_filter=True, *args, **kwargs):
         """Run source-extractor (sextractor) on the given image.
-
+        If flag_filter == True, return only sources with FLAGS == 0
+        
         Note
         ----
         Currently, CHECK_IMGS are deleted.  This is fairly easy to change
@@ -101,4 +102,6 @@ class Sextractor(sextractorConfig, shMixin):
         catalog = Table.read(options.get("CATALOG_NAME"), format="ascii.sextractor")
         # Cleanup catalog file
         os.remove(options.get("CATALOG_NAME"))
+        if flag_filter:
+            catalog = catalog[ catalog['FLAGS'] == 0 ]
         return catalog
