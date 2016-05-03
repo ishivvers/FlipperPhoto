@@ -8,7 +8,7 @@ from tempfile import mktemp
 from astropy.io.fits import hdu
 from astropy.table import Table
 
-from flipp.libs.utils import ShellCmd
+from flipp.libs.utils import shMixin
 from conf import SEXCONFPATH
 
 # ================
@@ -44,7 +44,7 @@ class sextractorConfig(object):
                 '"%s"' %(self.value_re.match(parts[1]).group())
         return tuple()
 
-class Sextractor(sextractorConfig, ShellCmd):
+class Sextractor(sextractorConfig, shMixin):
     """Sextractor wrapper with config built in."""
 
     cmd = "sextractor"
@@ -90,7 +90,7 @@ class Sextractor(sextractorConfig, ShellCmd):
         options = self.set_defaults()
         options.update(kwargs)
         img_file = self.getimgfile(filepath_or_buffer)
-        stdout = self.run(img_file, *args, **options)
+        stdout = self.sh(img_file, *args, **options)
 
         # ===========================================================
         # Delete all CHECK Images for now, it doesn't seem like we're
