@@ -28,8 +28,8 @@ from tempfile import mktemp
 
 from astropy.io import fits
 
-from flipp.libs.utils.shell import shMixin, FitsIOMixin
-from conf import SEXCONFPATH
+from flipp.libs.utils import shMixin, FitsIOMixin
+from conf import SEXCONFPATH, ASTROMETRYCONF
 
 DEFAULT_CONF = "/usr/local/astrometry/etc/astrometry.cfg"
 """A version of this with reasonable defaults ought to be
@@ -44,11 +44,14 @@ class Astrometry(shMixin, FitsIOMixin):
         "pixscaleH",) # For FitsIOMixin
 
     def __init__(self, fp_or_buffer, telescope_config):
-        """
-        We want to be able to feed in either a filepath or a pyfits
-        object.  In either case, we want some representation of where
-        the actual image on disk is, and to never actually write on top
-        or over that image.
+        """Runs atrometry on a single fits file/image.
+
+        Parameters
+        ----------
+        fp_or_buffer : str, astropy.HDUList
+            filepath to image or astropy fits image
+        telescope_config : str
+            'kait', 'nickel' or user specified config
         """
         name, path, image = self._parse_input(fp_or_buffer)
         telescope_config = self._parse_telescope_config(telescope_config)
@@ -57,22 +60,23 @@ class Astrometry(shMixin, FitsIOMixin):
         self.image = image
         self.telescope = telescope_config
         self.last_cmd = None
+        self.success = False
 
     @property
     def defaults(self):
         default_values = (("-scale-units" , "arcsecperpix"),
-            ('-backend-config' , DEFAULT_CONF),
-            ('-tweak-order' , 2),
-            ('-overwrite' , None),
-            ('-no-plots' , None),
-            ("-ra" , self.image[0].header["RA"]),
-            ("-dec" , self.image[0].header["DEC"]),
-            ("-radius" , 0.3),
-            ("-scale-low" , self.telescope['pixscaleL']),
-            ("-scale-high" , self.telescope['pixscaleH']),
-            ("-dir" , os.path.dirname(os.path.abspath(self.path))),
-            ("-new-fits" , mktemp(suffix=".fits", prefix = "SOLVED-%s" %(self.name))),
-            ("-sextractor-path" , "/usr/bin/sextractor"),
+            ('backend-config' , ASTROMETRYCONF),
+            ('tweak-order' , 2),
+            ('overwrite' , None),
+            ('no-plots' , None),
+            ("ra" , self.image[0].header["RA"]),
+            ("dec" , self.image[0].header["DEC"]),
+            ("radius" , 0.3),
+            ("scale-low" , self.telescope['pixscaleL']),
+            ("scale-high" , self.telescope['pixscaleH']),
+            ("dir" , os.path.dirname(os.path.abspath(self.path))),
+            ("new-fits" , mktemp(suffix=".fits", prefix = "SOLVED-%s" %(self.name))),
+            ("sextractor-path" , "/usr/bin/sextractor"),
             )
         return OrderedDict(default_values)
 
@@ -90,15 +94,15 @@ class Astrometry(shMixin, FitsIOMixin):
                 raise AstrometryNetUnsolvedField(path)
 
     def solve(self, *args, **kwargs):
+        """Run astrometry on given file input.
+
+        """
         args = self.update_args([self.path], args)
         options = self.update_kwargs(self.defaults, kwargs)
         outpath = self.get_output_path(options)
         self.last_cmd = self.configure(*args, **options)
         output = self.sh(*args, **options)
 
-        # We need to parse this output to determine whether or not
-        # astrometry actually ran.
-
-        # return output #fits.open(outpath)
-        if outpath:
+        if os.path.exists(outpath):
+            self.success = True
             return fits.open(outpath)
