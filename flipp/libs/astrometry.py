@@ -81,8 +81,8 @@ class Astrometry(shMixin, FitsIOMixin):
         return OrderedDict(default_values)
 
     def get_output_path(self, config_dict):
-        filedir = config_dict['-dir']
-        filename = config_dict['-new-fits']
+        filedir = config_dict['dir']
+        filename = config_dict['new-fits']
         return os.path.join(filedir, filename)
 
     def get_solved_img(self, config_dict):
