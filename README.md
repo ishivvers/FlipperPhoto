@@ -68,21 +68,20 @@ These files have been flatfield-corrected, bias-corrected, and trimmed, but the 
     - include a c to mark this file as a fully calibrated image
   - The skeleton code to do this is available in flipp/imgchecker/validators.py:moveFile()
  - For each image in the `reduced_images` folder, calculate the observed magnitude for each detected object
-  - use source extractor to pull out the instrumental magnitudes for all objects
-   - DONE
-  - cross-match the source extractor catalogs to APASS stars and calculate the image zeropoint
-   - use [astroquery](http://www.astropy.org/astroquery/) to access APASS data
-    - plan to later have local storage of APASS data, to make this step faster
-   - use [astropy coordinates](http://astropy.readthedocs.io/en/latest/coordinates/) to cross-match the APASS catalog to our source extractor catalog
-   - translate APASS magnitudes into KAIT/Nickel passbands and calculate the zeropoint
-    - use color terms from Mo's thesis; talk to WK.
+   - use source extractor to pull out the instrumental magnitudes for all objects: DONE
+   - cross-match the source extractor catalogs to APASS stars and calculate the image zeropoint
+     - use [astroquery](http://www.astropy.org/astroquery/) to access APASS data
+     - plan to later have local storage of APASS data, to make this step faster
+     - use [astropy coordinates](http://astropy.readthedocs.io/en/latest/coordinates/) to cross-match the APASS catalog to our source extractor catalog
+     - translate APASS magnitudes into KAIT/Nickel passbands and calculate the zeropoint
+       - use color terms from Mo's thesis; talk to WK.
  - Populate a database of those results
   - use MySQL
   - one table for objects
-   - each row has RA,Dec,APASS\_ID,APASS\_mag,(maybe other catalog ids and mags),objectType
-   - all objects that are NOT in APASS/other catalogs should be noted as possible transients
+    - each row has RA,Dec,APASS\_ID,APASS\_mag,(maybe other catalog ids and mags),objectType
+    - all objects that are NOT in APASS/other catalogs should be noted as possible transients
   - another table for observations
-   - each row includes the ObjectID,date,magnitude,error,passband
+    - each row includes the ObjectID,date,magnitude,error,passband
  - Further steps:
-  - perform image subtraction on new images to look for faint sources
-  - incorporate into realtime KAIT checking pipeline
+   - perform image subtraction on new images to look for faint sources
+   - incorporate into realtime KAIT checking pipeline
