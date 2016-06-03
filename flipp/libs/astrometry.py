@@ -18,9 +18,13 @@ the photutils project is mature enough to replace astrometry.
 It should be mentioned that a lot of the code design was derived
 from studying the structure of the LEMON project.
 """
+from __future__ import unicode_literals
+from builtins import str
 
 import os
 import re
+import argparse
+import glob
 
 from collections import OrderedDict
 
@@ -29,7 +33,7 @@ from tempfile import mktemp
 from astropy.io import fits
 
 from flipp.libs.utils import shMixin, FitsIOMixin
-from conf import SEXCONFPATH, ASTROMETRYCONF
+from conf import SEXCONFPATH, ASTROMETRYCONF, TELESCOPES
 
 DEFAULT_CONF = "/usr/local/astrometry/etc/astrometry.cfg"
 """A version of this with reasonable defaults ought to be
@@ -64,34 +68,27 @@ class Astrometry(shMixin, FitsIOMixin):
 
     @property
     def defaults(self):
-        default_values = (("-scale-units" , "arcsecperpix"),
-            ('backend-config' , ASTROMETRYCONF),
-            ('tweak-order' , 2),
-            ('overwrite' , None),
-            ('no-plots' , None),
-            ("ra" , self.image[0].header["RA"]),
-            ("dec" , self.image[0].header["DEC"]),
-            ("radius" , 0.3),
-            ("scale-low" , self.telescope['pixscaleL']),
-            ("scale-high" , self.telescope['pixscaleH']),
-            ("dir" , os.path.dirname(os.path.abspath(self.path))),
-            ("new-fits" , mktemp(suffix=".fits", prefix = "SOLVED-%s" %(self.name))),
-            ("sextractor-path" , "/usr/bin/sextractor"),
+        default_values = (("u" , "arcsecperpix"), # --scale-units
+            ('b' , ASTROMETRYCONF), # --backend-config
+            ('t' , 2), # --tweak-order
+            ('O' , None), # --overwrite
+            ('p' , None), # --no-plots
+            ("3" , self.image[0].header["RA"]), # --ra
+            ("4" , self.image[0].header["DEC"]), # --dec
+            ("5" , 0.3), # --radius
+            ("L" , self.telescope['pixscaleL']), # --scale-low
+            ("H" , self.telescope['pixscaleH']), # --scale-high
+            ("D" , os.path.dirname(os.path.abspath(self.path))), # --dir
+            ("N" , mktemp(suffix=".fits",
+                    prefix = "SOLVED-%s" %(self.name))), # --new-fits
+            ("-sextractor-path" , "/usr/bin/sextractor"),
             )
         return OrderedDict(default_values)
 
     def get_output_path(self, config_dict):
-        filedir = config_dict['dir']
-        filename = config_dict['new-fits']
+        filedir = config_dict['D']
+        filename = config_dict['N']
         return os.path.join(filedir, filename)
-
-    def get_solved_img(self, config_dict):
-        filedir = config_dict['-dir']
-        filename = config_dict['-new-fits']
-        fp = os.path.join(filedir, filename)
-        with open(fp, 'rb') as fd:
-            if ord(fd.read()) != 1:
-                raise AstrometryNetUnsolvedField(path)
 
     def solve(self, *args, **kwargs):
         """Run astrometry on given file input.
@@ -101,8 +98,30 @@ class Astrometry(shMixin, FitsIOMixin):
         options = self.update_kwargs(self.defaults, kwargs)
         outpath = self.get_output_path(options)
         self.last_cmd = self.configure(*args, **options)
-        output = self.sh(*args, **options)
 
+        output = self.sh(*args, **options)
         if os.path.exists(outpath):
             self.success = True
             return fits.open(outpath)
+
+def flippsolve():
+    """Console script entry-point for flipp."""
+    parser = argparse.ArgumentParser(description='Run astrometry on a file'
+        ' or directory and send to an output directory.', )
+
+    parser.add_argument('file', metavar="input file(s)", type=str,
+        nargs = 1, help = 'Filepath or directory to fits')
+    parser.add_argument('telescope', metavar='telescope config',
+        choices = TELESCOPES.keys(), nargs=1,
+        help='One of {0}'.format(' '.join(TELESCOPES.keys())))
+    parser.add_argument('-o', '--output-dir', metavar="output directory", type=str, nargs = 1, help = "Filepath or directory to put outputs.",
+        dest='output_dir', default='.')
+    args = parser.parse_args()
+
+    files = glob.iglob(*args.file)
+
+    for f in files:
+        solver = Astrometry(f, args.telescope)
+        img = solver.solve(dir=args.output_dir)
+        if not img: continue
+        os.rename(img.filepath, '{0}-SOLVED.fits'.format(solver.name))
