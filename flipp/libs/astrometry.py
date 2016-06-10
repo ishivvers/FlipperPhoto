@@ -73,8 +73,8 @@ class Astrometry(shMixin, FitsIOMixin):
             ('t' , 2), # --tweak-order
             ('O' , None), # --overwrite
             ('p' , None), # --no-plots
-            ("3" , self.image[0].header["RA"]), # --ra
-            ("4" , self.image[0].header["DEC"]), # --dec
+            ("3" , self.image[0].header["RA"].strip()), # --ra
+            ("4" , self.image[0].header["DEC"].strip()), # --dec
             ("5" , 0.3), # --radius
             ("L" , self.telescope['pixscaleL']), # --scale-low
             ("H" , self.telescope['pixscaleH']), # --scale-high
