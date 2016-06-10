@@ -4,8 +4,8 @@ The UCB Filippenko Group's Photometry Pipeline
 
 ## Our goals:
 
- - Produce a set of codes that can be run in sequence to take 
-   raw images from the KAIT and Nickel telescopes and produce 
+ - Produce a set of codes that can be run in sequence to take
+   raw images from the KAIT and Nickel telescopes and produce
    calibrated photometry fully autonomously.  I.E. a "data pipeline".
   - Design the pipeline so that it can be run on archived data and on new
     images moving forward.
@@ -50,20 +50,38 @@ These files have been flatfield-corrected, bias-corrected, and trimmed, but the 
   - extreme examples of "bad" images:
    - ``/media/raid0/Data/kait/2013/Jun25/Jun3pind.fts.Z``
    - ``/media/raid0/Data/kait/2015/Sep30/Sep5uihp.fts.Z``
-  - examples of "good" images: 
+  - examples of "good" images:
    - ``/media/raid0/Data/kait/2015/May20/May5khhh.fts.Z``
    - ``/media/raid0/Data/nickel/nickel150609/data/tfn150609.d206.sn2014c.V.fit``
-  - UNDERWAY
- - For every good image, calculate the WCS using [astrometry.net](http://astrometry.net/use.html) code
-  - there is a system-wide installation now running
-  - SKELETON CODE IN REPO
- - After the WCS information is added to the image header, move the file to ``/media/raid0/Data/reduced_images/TELESCOPE/YYYYMMDD/*``, and rename the file to the following convention:
-   - targetName_YYYYMMDD.dddd_k-or-n_filter_c.fit
+ - *Current answer:*
+  - since astrometry is fundamental to our later steps, only images with successful
+    astrometry calculations are marked "good"
+  - this cuts quite a few images that *should* be good, but for some reason or another
+    astrometry.net does not successfully calculate their astrometry.  We should
+    improve upon this.
+ - After the WCS information is added to the image header using astrometry.net, move the file to ``/media/raid0/Data/reduced_images/TELESCOPE/YYYYMMDD/*``, and rename the file to the following convention:
+   - targetName\_YYYYMMDD.dddd\_k-or-n\_filter\_c.fit
     - use k or n to demarcate KAIT or Nickel
     - filter should be one of B,V,R,I, or clear
     - targetName from the file header
     - YYYYMMDD.dddd is observation date with decimal days (out to 4 decimal points)
     - include a c to mark this file as a fully calibrated image
-  - SKELETON CODE IN REPO
- - to be continued...
-
+  - The skeleton code to do this is available in flipp/imgchecker/validators.py:moveFile()
+ - For each image in the `reduced_images` folder, calculate the observed magnitude for each detected object
+   - use source extractor to pull out the instrumental magnitudes for all objects: DONE
+   - cross-match the source extractor catalogs to APASS stars and calculate the image zeropoint
+     - use [astroquery](http://www.astropy.org/astroquery/) to access APASS data
+     - plan to later have local storage of APASS data, to make this step faster
+     - use [astropy coordinates](http://astropy.readthedocs.io/en/latest/coordinates/) to cross-match the APASS catalog to our source extractor catalog
+     - translate APASS magnitudes into KAIT/Nickel passbands and calculate the zeropoint
+       - use color terms from Mo's thesis; talk to WK.
+ - Populate a database of those results
+  - use MySQL
+  - one table for objects
+    - each row has RA,Dec,APASS\_ID,APASS\_mag,(maybe other catalog ids and mags),objectType
+    - all objects that are NOT in APASS/other catalogs should be noted as possible transients
+  - another table for observations
+    - each row includes the ObjectID,date,magnitude,error,passband
+ - Further steps:
+   - perform image subtraction on new images to look for faint sources
+   - incorporate into realtime KAIT checking pipeline
