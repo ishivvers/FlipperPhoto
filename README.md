@@ -4,8 +4,8 @@ The UCB Filippenko Group's Photometry Pipeline
 
 ## Our goals:
 
- - Produce a set of codes that can be run in sequence to take 
-   raw images from the KAIT and Nickel telescopes and produce 
+ - Produce a set of codes that can be run in sequence to take
+   raw images from the KAIT and Nickel telescopes and produce
    calibrated photometry fully autonomously.  I.E. a "data pipeline".
   - Design the pipeline so that it can be run on archived data and on new
     images moving forward.
@@ -50,14 +50,14 @@ These files have been flatfield-corrected, bias-corrected, and trimmed, but the 
   - extreme examples of "bad" images:
    - ``/media/raid0/Data/kait/2013/Jun25/Jun3pind.fts.Z``
    - ``/media/raid0/Data/kait/2015/Sep30/Sep5uihp.fts.Z``
-  - examples of "good" images: 
+  - examples of "good" images:
    - ``/media/raid0/Data/kait/2015/May20/May5khhh.fts.Z``
    - ``/media/raid0/Data/nickel/nickel150609/data/tfn150609.d206.sn2014c.V.fit``
  - *Current answer:*
   - since astrometry is fundamental to our later steps, only images with successful
     astrometry calculations are marked "good"
   - this cuts quite a few images that *should* be good, but for some reason or another
-    astrometry.net does not successfully calculate their astrometry.  We should 
+    astrometry.net does not successfully calculate their astrometry.  We should
     improve upon this.
  - After the WCS information is added to the image header using astrometry.net, move the file to ``/media/raid0/Data/reduced_images/TELESCOPE/YYYYMMDD/*``, and rename the file to the following convention:
    - targetName\_YYYYMMDD.dddd\_k-or-n\_filter\_c.fit
