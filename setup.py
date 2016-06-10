@@ -35,7 +35,8 @@ setup(
     install_requires=['future',
         'numpy',
         'astropy',
-        'pandas'],
+        'pandas',
+        'astroquery'],
 
     extras_require={
         'dev': ['check-manifest', 'fabric'],
