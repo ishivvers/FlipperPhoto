@@ -86,23 +86,25 @@ class Astrometry(shMixin, FitsIOMixin):
         return OrderedDict(default_values)
 
     def get_output_path(self, config_dict):
-        filedir = config_dict['D']
-        filename = config_dict['N']
-        return os.path.join(filedir, filename)
+        return config_dict['N'] or config_dict['--new-fits'] or None
 
     def solve(self, *args, **kwargs):
         """Run astrometry on given file input.
 
+        Note
+        ----
+        Refer to man-page
         """
         args = self.update_args([self.path], args)
         options = self.update_kwargs(self.defaults, kwargs)
         outpath = self.get_output_path(options)
         self.last_cmd = self.configure(*args, **options)
-
         output = self.sh(*args, **options)
         if os.path.exists(outpath):
             self.success = True
             return fits.open(outpath)
+        else:
+            self.success = False
 
 def flippsolve():
     """Console script entry-point for flipp."""
