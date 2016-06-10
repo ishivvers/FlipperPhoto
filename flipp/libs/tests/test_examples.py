@@ -21,18 +21,17 @@ from conf import FIXTURE_DIR
 from flipp.libs import examples
 
 
-
 class Test_plot_one_image(TestCase):
     """Example TestCase, with ideas of what to test.
 
     Note
     ----
-    The setUp and tearDown methods are special methods that are 
-    run before and after every test.  
+    The setUp and tearDown methods are special methods that are
+    run before and after every test.
     """
 
     def setUp(self):
-        self.testImgPath = os.path.join(FIXTURE_DIR, 
+        self.testImgPath = os.path.join(FIXTURE_DIR,
             'nickel', 'tfn150609.d206.sn2014c.V.fit')
 
     def test_fixturePath(self):
@@ -56,7 +55,7 @@ class Test_plot_one_image(TestCase):
         ----
         This is also called Integration testing, where you aren't
         testing for anything specific, just that the whole package
-        works.  Most tests will probably take this form.  
+        works.  Most tests will probably take this form.
         """
 
         # Should return nothing since plt.show() is a side effect
