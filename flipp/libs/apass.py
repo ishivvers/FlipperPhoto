@@ -6,6 +6,8 @@ from builtins import str
 import requests
 import pandas as pd
 
+from StringIO import StringIO
+
 class Client(object):
 
     host = "https://www.aavso.org/"
@@ -35,9 +37,9 @@ class Client(object):
 
     @classmethod
     def query(cls, ra, dec, radius, outtype='1'):
-        ra = float(ra.strip())
-        dec = float(dec.strip())
-        radius = float(radius.strip())
-        outtype = int(outtype.strip())
+        ra = float(ra)
+        dec = float(dec)
+        radius = float(radius)
+        outtype = int(outtype)
         r = cls._get(ra, dec, radius, outtype)
         return pd.read_csv(StringIO(r.text))
