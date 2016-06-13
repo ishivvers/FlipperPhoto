@@ -9,6 +9,17 @@ import pandas as pd
 from StringIO import StringIO
 
 class Client(object):
+    """FLIPP Python client for accessing and querying the APASS database.
+
+    Example
+    -------
+
+    .. code-block::
+
+        from flipp.libs.apass import Client as APASS
+
+        print(APASS.query(5, 5, 1.))
+    """
 
     host = "https://www.aavso.org/"
     endpoint = "cgi-bin/apass_download.pl"
