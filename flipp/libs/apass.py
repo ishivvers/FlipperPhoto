@@ -4,7 +4,7 @@ from __future__ import unicode_literals
 from builtins import str
 
 import requests
-import pandas as pd
+from astropy.table import Table
 
 from StringIO import StringIO
 
@@ -72,9 +72,9 @@ class Client(object):
 
         Returns
         -------
-        pd.DataFrame
-            Pandas Dataframe of APASS search results.
+        astropy.table.Table
+            astropy Table of APASS search results.
         """
         r = cls._get(ra, dec, radius, outtype)
         assert r.status_code == 200, "Invalid query"
-        return pd.read_csv(StringIO(r.text))
+        return Table.read(StringIO(r.text), format="ascii.csv")
