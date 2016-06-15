@@ -17,7 +17,7 @@ def gri2R( g,r,i ):
     R = V - (0.38*(r-i) + 0.27)
     return R, (0.02**2 + 0.02**2)**0.5
 
-def Zeropoint_apass( sxcat, passband='clear' ):
+def Zeropoint_apass( sources, passband='clear' ):
     """Given a source extractor catalog calculated from a single image,
     calculate the zero point (in magnitudes) of that image and return
     a catalog of sources with magnitudes and errors.
