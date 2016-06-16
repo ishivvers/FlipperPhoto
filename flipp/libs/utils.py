@@ -16,6 +16,8 @@ from subprocess import Popen, PIPE
 from tempfile import mktemp
 from conf import TELESCOPES
 
+from flipp.libs.fileio import get_zipped_fitsfile
+
 # We may want to rewrite this to work around fabric
 # which will allow remote calls.  Depending on how Isaac views
 # this tool being used, we'll stick with a locally-runnable version
@@ -117,12 +119,13 @@ class FitsIOMixin(object):
             try:
                 image = fits.open(obj)
             except IOError:
-                self.image = ZCat.open(obj)
+                # self.image = ZCat.open(obj)
+                image = get_zipped_fitsfile(obj)
             name = os.path.split(obj)[1]
 
             path = mktemp(prefix="COPY-{0}".format(os.path.splitext(name)[0]),
                 suffix=".fits")
-            image.writeto(path)
+            image.writeto(path, output_verify="silentfix")
 
         elif isinstance(obj, fits.hdu.hdulist.HDUList):
             # or isinstance(obj, fits.hdu.image.PrimaryHDU):
@@ -133,7 +136,7 @@ class FitsIOMixin(object):
                 path = fp
             else:
                 z = mktemp(suffix=".fits")
-                obj.writeto(z)
+                obj.writeto(z, output_verify="silentfix")
                 path = z
             if fp:
                 name = os.path.split(fp)[1]
