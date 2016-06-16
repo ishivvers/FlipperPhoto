@@ -10,19 +10,15 @@ class image(object):
     through the pipeline.
     """
     
-    def __init__(self, fname, tel, logfile=None):
+    def __init__(self, fname, logfile=None):
         self.fname = fname
         self.logfile = logfile
-        
-        # find which telescope and filter this image is; maybe in a subfunction
-        #  called pull_header_info
-        if tel == 'kait':
-            # could replace this by pulling info from header
-            self.tel = 'kait'
-            self.tempfolder = "/media/LocalStorage/tmp"
-            self.donefolder = "/media/LocalStorage/reduced_images/kait" # here as a testbed for now
-        else:
-            raise Exception('Not yet implemented.')
+
+        self.build_log()
+        self.pull_header_info()
+
+        self.tempfolder = "/media/LocalStorage/tmp"
+        self.donefolder = "/media/LocalStorage/reduced_images/"+self.tel
         
         self.steps = [self.solve_astrometry,
                       self.save_to_file,
@@ -30,7 +26,6 @@ class image(object):
                       self.apply_zeropoint,
                       self.ingest_to_database]
         self.current_step = 0
-        self.build_log()
         
     
     def next(self, *args, **kwargs):
@@ -46,6 +41,7 @@ class image(object):
                 self.next()
             except StopIteration:
                 self.log.info('FlipperPhot pipeline ended.')
+                self.cleanup()
                 return
     
     def build_log(self):
@@ -63,27 +59,34 @@ class image(object):
         sh.setFormatter( logging.Formatter('*'*40+'\n%(levelname)s - %(message)s\n'+'*'*40) )
         self.log.addHandler(sh)
         self.log.info('FlipperPhot pipeline started.')
+        return
     
+    def cleanup(self):
+        for handler in self.log.handlers: #clean up the loggers for the next file
+            self.log.removeHandler(handler)
+
+    #############################################################################################
+
     def pull_header_info(self):
         """Pull relevant info from header file before going through the pipeline.
         """
         self.header = fileio.get_head( self.fname )
         inst = self.header.get('INSTRUME').strip()
-        if inst == 'K.A.I.T':
+        if inst == 'K.A.I.T.':
             self.tel = 'kait'
         elif 'Nickel' in inst:
             self.tel = 'nick'
         # other tests?
         if self.tel == 'nick':
-            self.filter = header['filtnam'].strip()
-            self.obsdate = datetime.strptime( header['date-obs']+' '+header['utmiddle'].split('.')[0], '%d/%m/%y %H:%M:%S' )
+            self.filter = self.header['filtnam'].strip()
+            self.obsdate = datetime.strptime( self.header['date-obs']+' '+self.header['utmiddle'].split('.')[0], '%d/%m/%y %H:%M:%S' )
         elif self.tel == 'kait':
-            self.filter = header['filters'].strip()
-            self.obsdate = datetime.strptime( header['date-obs']+' '+header['ut'], '%d/%m/%Y %H:%M:%S' )
-        
-    #############################################################################################
+            self.filter = self.header['filters'].strip()
+            self.obsdate = datetime.strptime( self.header['date-obs']+' '+self.header['ut'], '%d/%m/%Y %H:%M:%S' )
+        self.log.info('IMAGE: %s \nTELESCOPE: %s\nFILTER: %s\nDATE/TIME %s'%(self.fname, self.tel, self.filter, self.obsdate.strftime('%Y-%m-%d %H:%M:%S')))
+        return
     
-    def perform_astrometry(self, pretest='sextractor'):
+    def solve_astrometry(self, pretest='sextractor'):
         """Perform astrometry on an image.
         """
         if pretest == 'sextractor':
@@ -97,7 +100,11 @@ class image(object):
             if len(sources) < threshold:
                 raise Exception('Image does not pass sextractor pretest.')
         
-        self.workingImage = astrometry.Astrometry(self.fname, self.tel)
+        a = astrometry.Astrometry(self.fname, self.tel)
+        self.workingImage = a.solve()
+        if self.workingImage == None:
+            raise Exception('Astrometry failed.')
+        self.log.info('astrometry completed successfully')
         return
     
     def extract_sources(self):
@@ -105,12 +112,15 @@ class image(object):
         """
         s = sextractor.Sextractor()
         self.sources = s.extract( self.workingImage )
+        self.log.info('sextractor found and extracted %d sources'%len(self.sources))
         return
     
     def apply_zeropoint(self):
         """Calculate and apply a zeropoint correction to sextractor catalog.
         """
-        self.sources = zeropoint.Zeropoint_apass( self.sources, self.filter )
+        self.sources,zp,N = zeropoint.Zeropoint_apass( self.sources, self.filter )
+        self.log.info('zeropoint: %.4f (%d sources crossmatched)'%(zp,N))
+        return
     
     def save_to_file(self):
         """Save a verified file to its permanent location.
@@ -133,6 +143,7 @@ class image(object):
         os.system( 'mkdir -p %s'%finalfolder ) # if folder does not yet exist, create it
         self.workingImage.writeto( finalname )
         self.savedfile = finalname
+        self.log.info('saved to file %s'%finalname)
         return
 
     def ingest_to_database(self, pos_tolerance=0.5):
