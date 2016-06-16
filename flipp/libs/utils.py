@@ -120,7 +120,7 @@ class FitsIOMixin(object):
                 image = fits.open(obj)
             except IOError:
                 # self.image = ZCat.open(obj)
-                self.image = get_zipped_fitsfile(obj)
+                image = get_zipped_fitsfile(obj)
             name = os.path.split(obj)[1]
 
             path = mktemp(prefix="COPY-{0}".format(os.path.splitext(name)[0]),
