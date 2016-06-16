@@ -7,12 +7,11 @@ from flipp.libs import fileio,astrometry,sextractor,zeropoint
 from datetime import datetime
 from glob import glob
 
-"""
-To do:
-
- - have a class of exception that means 'this images fails a test, so throw it away'
- - handle the log cleanup inside the image object upon one of those failures
-"""
+class ImageFailedError(Exception):
+    """Simple pipeline error; raised when nothing is wrong
+    but an image is bad.
+    """
+    pass
 
 class image(object):
     """A class that handles an image being processed all the way
@@ -21,10 +20,11 @@ class image(object):
     
     def __init__(self, fname, logfile=None):
         self.fname = fname
+        self.workingImage = None
         self.logfile = logfile
 
         self.build_log()
-        self.pull_header_info()
+        self.pull_header_info() #populates a lot of self variables from the header
 
         self.tempfolder = "/media/LocalStorage/tmp"
         self.donefolder = "/media/LocalStorage/reduced_images/"+self.tel
@@ -36,10 +36,13 @@ class image(object):
                       self.ingest_to_database]
         self.current_step = 0
         
-    
     def next(self, *args, **kwargs):
         if self.current_step < len(self.steps):
-            self.steps[ self.current_step ]( *args, **kwargs )
+            try:
+                self.steps[ self.current_step ]( *args, **kwargs )
+            except ImageFailedError as e:
+                self.log.error( str(e) )
+                raise StopIteration
             self.current_step += 1
         else:
             raise StopIteration
@@ -49,28 +52,39 @@ class image(object):
             try:
                 self.next()
             except StopIteration:
-                self.log.info('FlipperPhot pipeline ended.')
                 self.cleanup()
                 return
     
-    def build_log(self):
+    def view_image(self):
+        """Plot the image and have a look.
+        """
+        if self.workingImage != None:
+            fileio.plot_one_image( self.workingImage )
+        else:
+            fileio.plot_one_image( self.fname )   
+
+    #############################################################################################
+
+    def build_log(self, loglevel=logging.INFO):
         """
         Required to start the log.
         """
+        logformat = '(%(levelname)s) - %(asctime)s ::: %(message)s'
         self.log = logging.getLogger('FlipperPhot')
-        self.log.setLevel(logging.INFO)
+        self.log.setLevel(loglevel)
         if self.logfile != None:      
             fh = logging.FileHandler( self.logfile )
-            fh.setFormatter( logging.Formatter('%(asctime)s: %(message)s') )
+            fh.setFormatter( logging.Formatter(logformat) )
             self.log.addHandler(fh)
         # have log messages go to screen
         sh = logging.StreamHandler()
-        sh.setFormatter( logging.Formatter('%(levelname)s: %(message)s') )
+        sh.setFormatter( logging.Formatter(logformat) )
         self.log.addHandler(sh)
         self.log.info('\n'+(40*'*')+'\nFlipperPhot pipeline started.\n'+(40*'*'))
         return
     
     def cleanup(self):
+        self.log.info('closing log.')
         for handler in self.log.handlers: #clean up the loggers for the next file
             self.log.removeHandler(handler)
 
@@ -92,7 +106,8 @@ class image(object):
         elif self.tel == 'kait':
             self.filter = self.header['filters'].strip()
             self.obsdate = datetime.strptime( self.header['date-obs']+' '+self.header['ut'], '%d/%m/%Y %H:%M:%S' )
-        self.log.info('\n  IMAGE: %s \n  TELESCOPE: %s\n  FILTER: %s\n  DATE/TIME %s'%(self.fname, self.tel, self.filter, self.obsdate.strftime('%Y-%m-%d %H:%M:%S')))
+        self.objectname = self.header['object'].replace(' ','').replace('_','-').lower()
+        self.log.info('\n  IMAGE: %s \n  TELESCOPE: %s\n  FILTER: %s\n  DATE/TIME: %s\n  TARGET: %s'%(self.fname, self.tel, self.filter, self.obsdate.strftime('%Y-%m-%d %H:%M:%S'),self.objectname))
         return
     
     def solve_astrometry(self, pretest='sextractor'):
@@ -107,12 +122,12 @@ class image(object):
             s = sextractor.Sextractor()
             sources = s.extract( self.fname )
             if len(sources) < threshold:
-                raise Exception('Image does not pass sextractor pretest.')
+                raise ImageFailedError('Image does not pass sextractor pretest.')
         
         a = astrometry.Astrometry(self.fname, self.tel)
         self.workingImage = a.solve()
         if self.workingImage == None:
-            raise Exception('Astrometry failed.')
+            raise ImageFailedError('Astrometry failed.')
         self.log.info('astrometry completed successfully')
         return
     
@@ -130,9 +145,9 @@ class image(object):
         threshold = 3
         self.sources,zp,N = zeropoint.Zeropoint_apass( self.sources, self.filter )
         if (N == 0) or np.isnan( zp ):
-            raise Exception('No stars crossmatched to catalog')
+            raise ImageFailedError('No stars crossmatched to catalog')
         elif (N < threshold):
-            raise Exception('Not enough stars crossmatched to catalog (%d stars found)'%N)
+            raise ImageFailedError('Not enough stars crossmatched to catalog (%d stars found)'%N)
         self.log.info('zeropoint: %.4f (%d sources crossmatched)'%(zp,N))
         return
     
@@ -147,10 +162,8 @@ class image(object):
         fractional_day += self.obsdate.second / (60.0*60.0*24.0)
         obsdate_ymd = obsdate_s
         obsdate_s += ("%.4f"%fractional_day).lstrip('0')
-        # pull info from headers that are consistent across the two telescopes
-        targetName = self.header['object'].replace(' ','').replace('_','-').lower()
         # format final filename
-        filename = "%s_%s_%s_%s_cal.fit" %(targetName, obsdate_s, telcode, self.filter)
+        filename = "%s_%s_%s_%s_cal.fit" %(self.objectname, obsdate_s, telcode, self.filter)
         # and write out to disk
         finalfolder = '%s/%s'%(self.donefolder, obsdate_ymd)
         finalname = '%s/%s'%(finalfolder, filename)
@@ -177,12 +190,7 @@ def run_folder( fpath ):
     allfs = np.sum(map(glob, searches)) # odd usage, but this produces a flat list of all files
     for f in allfs:                     #  that match any search string in postfixs
         i = image(f)
-        try:
-            i.run()
-        except:
-            i.log.error('Failed on step %d'%i.current_step)
-            i.cleanup()
-            continue
+        i.run()
 
 
 
