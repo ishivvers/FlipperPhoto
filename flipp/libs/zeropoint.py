@@ -25,7 +25,7 @@ def Zeropoint_apass( sources, passband='clear' ):
 
     .. code-block::
 
-        from flipp.libs.zeropoint import Zeropoint
+        from flipp.libs.zeropoint import Zeropoint_apass
         from flipp.libs.sextractor import Sextractor
         from flipp.libs.astrometry import Astrometry
         
@@ -35,7 +35,7 @@ def Zeropoint_apass( sources, passband='clear' ):
         e = x.solve(N = 'TEST.fits')
         sources = s.extract(e)
         
-        sources = zeropoint(sources)
+        sources = Zeropoint_apass(sources)
     """
 
     # find the middle of the field found in the image
@@ -55,9 +55,9 @@ def Zeropoint_apass( sources, passband='clear' ):
     apass_cat = apass_sources[ catalog_matches ]
     if passband == 'clear':
         # transform the catalog values to R passband, which is roughly right
-        apass_cat[passband],err = gri2R( np.array(apass_cat['Sloan_g']),
-                                  np.array(apass_cat['Sloan_r']),
-                                  np.array(apass_cat['Sloan_i']) )
+        apass_cat[passband],transf_err = gri2R( np.array(apass_cat['Sloan_g']),
+                                                np.array(apass_cat['Sloan_r']),
+                                                np.array(apass_cat['Sloan_i']) )
     else:
         raise Exception('Passband not yet implemented.')
 
@@ -66,4 +66,5 @@ def Zeropoint_apass( sources, passband='clear' ):
 
     # apply that zeropoint to all sources and return the fixed up catalog
     sources['MAG_AUTO_ZP'] = sources['MAG_AUTO']+zp
+    sources['MAGERR_AUTO_ZP'] = (np.array(sources['MAGERR_AUTO'])**2+transf_err**2)**0.5
     return sources
