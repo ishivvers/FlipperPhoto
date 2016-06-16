@@ -2,16 +2,20 @@ import os
 import logging
 
 from flipp.libs import fileio,astrometry,sextractor,zeropoint
+
 from datetime import datetime
 
 class image(object):
     """A class that handles an image being processed all the way
-    through the pipeline."""
+    through the pipeline.
+    """
     
     def __init__(self, fname, tel, logfile=None):
         self.fname = fname
         self.logfile = logfile
         
+        # find which telescope and filter this image is; maybe in a subfunction
+        #  called pull_header_info
         if tel == 'kait':
             # could replace this by pulling info from header
             self.tel = 'kait'
@@ -60,6 +64,23 @@ class image(object):
         self.log.addHandler(sh)
         self.log.info('FlipperPhot pipeline started.')
     
+    def pull_header_info(self):
+        """Pull relevant info from header file before going through the pipeline.
+        """
+        self.header = fileio.get_head( self.fname )
+        inst = self.header.get('INSTRUME').strip()
+        if inst == 'K.A.I.T':
+            self.tel = 'kait'
+        elif 'Nickel' in inst:
+            self.tel = 'nick'
+        # other tests?
+        if self.tel == 'nick':
+            self.filter = header['filtnam'].strip()
+            self.obsdate = datetime.strptime( header['date-obs']+' '+header['utmiddle'].split('.')[0], '%d/%m/%y %H:%M:%S' )
+        elif self.tel == 'kait':
+            self.filter = header['filters'].strip()
+            self.obsdate = datetime.strptime( header['date-obs']+' '+header['ut'], '%d/%m/%Y %H:%M:%S' )
+        
     #############################################################################################
     
     def perform_astrometry(self, pretest='sextractor'):
@@ -94,33 +115,23 @@ class image(object):
     def save_to_file(self):
         """Save a verified file to its permanent location.
         """
-        header = self.workingImage[0].header
-        # pull info from the headers, formatted differently for kait and nickel
-        if self.tel == 'kait':
-            obsdate = datetime.strptime( header['date-obs']+' '+header['ut'], '%d/%m/%Y %H:%M:%S' )
-            telcode = 'k'
-            filt = header['filters'].strip()
-        elif self.tel == 'nick':
-            obsdate = datetime.strptime( header['date-obs']+' '+header['utmiddle'].split('.')[0], '%d/%m/%y %H:%M:%S' )
-            telcode = 'n'
-            filt = header['filtnam'].strip()
-        self.filter = filt
+        telcode = self.tel[0]
         # format the date+time string we want
-        obsdate_s = obsdate.strftime( '%Y%m%d' )
-        fractional_day = obsdate.hour / 24.0
-        fractional_day += obsdate.minute / (60.0*24.0)
-        fractional_day += obsdate.second / (60.0*60.0*24.0)
+        obsdate_s = self.obsdate.strftime( '%Y%m%d' )
+        fractional_day = self.obsdate.hour / 24.0
+        fractional_day += self.obsdate.minute / (60.0*24.0)
+        fractional_day += self.obsdate.second / (60.0*60.0*24.0)
         obsdate_ymd = obsdate_s
         obsdate_s += ("%.4f"%fractional_day).lstrip('0')
         # pull info from headers that are consistent across the two telescopes
-        targetName = header['object'].replace(' ','').replace('_','-').lower()
+        targetName = self.header['object'].replace(' ','').replace('_','-').lower()
         # format final filename
-        filename = "%s_%s_%s_%s_cal.fit" %(targetName, obsdate_s, telcode, filt)
-        # and move it
+        filename = "%s_%s_%s_%s_cal.fit" %(targetName, obsdate_s, telcode, self.filter)
+        # and write out to disk
         finalfolder = '%s/%s'%(self.donefolder, obsdate_ymd)
         finalname = '%s/%s'%(finalfolder, filename)
         os.system( 'mkdir -p %s'%finalfolder ) # if folder does not yet exist, create it
-        self.hdu.writeto( finalname )
+        self.workingImage.writeto( finalname )
         self.savedfile = finalname
         return
 
