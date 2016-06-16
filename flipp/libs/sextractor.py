@@ -8,7 +8,7 @@ from tempfile import mktemp
 from astropy.io.fits import hdu
 from astropy.table import Table
 
-from flipp.libs.utils import shMixin
+from flipp.libs.utils import shMixin, FitsIOMixin
 from conf import SEXCONFPATH
 
 # ================
@@ -44,7 +44,7 @@ class sextractorConfig(object):
                 '"%s"' %(self.value_re.match(parts[1]).group())
         return tuple()
 
-class Sextractor(sextractorConfig, shMixin):
+class Sextractor(sextractorConfig, shMixin, FitsIOMixin):
     """Sextractor wrapper with config built in."""
 
     cmd = "sextractor"
@@ -61,15 +61,15 @@ class Sextractor(sextractorConfig, shMixin):
             }
         return D
 
-    def getimgfile(self, filepath_or_buffer):
-        fp = filepath_or_buffer
-        if isinstance(fp, str): return fp
-        if isinstance(fp, file): return fp.name
-        if isinstance(fp, hdu.hdulist.HDUList) or \
-            isinstance(fp, hdu.image.PrimaryHDU):
-            z = mktemp(suffix=".fits")
-            fp.writeto(z)
-            return z
+    # def getimgfile(self, filepath_or_buffer):
+    #     fp = filepath_or_buffer
+    #     if isinstance(fp, str): return fp
+    #     if isinstance(fp, file): return fp.name
+    #     if isinstance(fp, hdu.hdulist.HDUList) or \
+    #         isinstance(fp, hdu.image.PrimaryHDU):
+    #         z = mktemp(suffix=".fits")
+    #         fp.writeto(z)
+    #         return z
 
     def get_output_filepaths(self, dict_config):
         return {"catalog" : dict_config.get('CATALOG_NAME', None),
@@ -78,7 +78,7 @@ class Sextractor(sextractorConfig, shMixin):
     def extract(self, filepath_or_buffer, flag_filter=True, *args, **kwargs):
         """Run source-extractor (sextractor) on the given image.
         If flag_filter == True, return only sources with FLAGS == 0
-        
+
         Note
         ----
         Currently, CHECK_IMGS are deleted.  This is fairly easy to change
@@ -90,18 +90,19 @@ class Sextractor(sextractorConfig, shMixin):
         """
         options = self.set_defaults()
         options.update(kwargs)
-        img_file = self.getimgfile(filepath_or_buffer)
-        stdout = self.sh(img_file, *args, **options)
+        name, path, image = self._parse_input(filepath_or_buffer)
+        self.last_cmd = self.configure(*args, **options)
+        output = self.sh(path, *args, **options)
 
         # ===========================================================
         # Delete all CHECK Images for now, it doesn't seem like we're
         # using them.  If we want to use them, then modify this block
-        for c in options.get("CHECKIMAGE_NAME").split(","):
-            os.remove(c)
+        # for c in options.get("CHECKIMAGE_NAME").split(","):
+        #     os.remove(c)
         # ===========================================================
         catalog = Table.read(options.get("CATALOG_NAME"), format="ascii.sextractor")
         # Cleanup catalog file
-        os.remove(options.get("CATALOG_NAME"))
+        # os.remove(options.get("CATALOG_NAME"))
         if flag_filter:
             catalog = catalog[ catalog['FLAGS'] == 0 ]
         return catalog
