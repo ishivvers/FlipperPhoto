@@ -1,9 +1,18 @@
 import os
 import logging
+import numpy as np
 
 from flipp.libs import fileio,astrometry,sextractor,zeropoint
 
 from datetime import datetime
+from glob import glob
+
+"""
+To do:
+
+ - have a class of exception that means 'this images fails a test, so throw it away'
+ - handle the log cleanup inside the image object upon one of those failures
+"""
 
 class image(object):
     """A class that handles an image being processed all the way
@@ -52,13 +61,13 @@ class image(object):
         self.log.setLevel(logging.INFO)
         if self.logfile != None:      
             fh = logging.FileHandler( self.logfile )
-            fh.setFormatter( logging.Formatter('%(asctime)s ::: %(message)s') )
+            fh.setFormatter( logging.Formatter('%(asctime)s: %(message)s') )
             self.log.addHandler(fh)
         # have log messages go to screen
         sh = logging.StreamHandler()
-        sh.setFormatter( logging.Formatter('*'*40+'\n%(levelname)s - %(message)s\n'+'*'*40) )
+        sh.setFormatter( logging.Formatter('%(levelname)s: %(message)s') )
         self.log.addHandler(sh)
-        self.log.info('FlipperPhot pipeline started.')
+        self.log.info('\n'+(40*'*')+'\nFlipperPhot pipeline started.\n'+(40*'*'))
         return
     
     def cleanup(self):
@@ -83,7 +92,7 @@ class image(object):
         elif self.tel == 'kait':
             self.filter = self.header['filters'].strip()
             self.obsdate = datetime.strptime( self.header['date-obs']+' '+self.header['ut'], '%d/%m/%Y %H:%M:%S' )
-        self.log.info('IMAGE: %s \nTELESCOPE: %s\nFILTER: %s\nDATE/TIME %s'%(self.fname, self.tel, self.filter, self.obsdate.strftime('%Y-%m-%d %H:%M:%S')))
+        self.log.info('\n  IMAGE: %s \n  TELESCOPE: %s\n  FILTER: %s\n  DATE/TIME %s'%(self.fname, self.tel, self.filter, self.obsdate.strftime('%Y-%m-%d %H:%M:%S')))
         return
     
     def solve_astrometry(self, pretest='sextractor'):
@@ -118,7 +127,12 @@ class image(object):
     def apply_zeropoint(self):
         """Calculate and apply a zeropoint correction to sextractor catalog.
         """
+        threshold = 3
         self.sources,zp,N = zeropoint.Zeropoint_apass( self.sources, self.filter )
+        if (N == 0) or np.isnan( zp ):
+            raise Exception('No stars crossmatched to catalog')
+        elif (N < threshold):
+            raise Exception('Not enough stars crossmatched to catalog (%d stars found)'%N)
         self.log.info('zeropoint: %.4f (%d sources crossmatched)'%(zp,N))
         return
     
@@ -152,5 +166,23 @@ class image(object):
         pos_tolerance: positional tolerance for cross-matching sources
         """
         pass
-        
-    
+       
+
+ 
+def run_folder( fpath ):
+    """Run all of the images in a folder through the pipeline
+    """
+    postfixs = ['*.fits','*.fts','*.fits.Z','*.fts.Z']
+    searches = map( lambda x: os.path.join(fpath,x), postfixs )
+    allfs = np.sum(map(glob, searches)) # odd usage, but this produces a flat list of all files
+    for f in allfs:                     #  that match any search string in postfixs
+        i = image(f)
+        try:
+            i.run()
+        except:
+            i.log.error('Failed on step %d'%i.current_step)
+            i.cleanup()
+            continue
+
+
+
