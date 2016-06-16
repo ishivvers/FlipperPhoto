@@ -1,8 +1,4 @@
-import pandas as pd
 import numpy as np
-
-from numpy import arccos,sin,cos
-from math import pi
 
 from flipp.libs.coord import ang_sep, indmatch
 from flipp.libs.apass import Client as APASS
@@ -39,7 +35,7 @@ def Zeropoint_apass( sources, passband='clear' ):
         e = x.solve(N = 'TEST.fits')
         sources = s.extract(e)
         
-        zeropoint(sources)
+        sources = zeropoint(sources)
     """
 
     # find the middle of the field found in the image
@@ -59,10 +55,9 @@ def Zeropoint_apass( sources, passband='clear' ):
     apass_cat = apass_sources[ catalog_matches ]
     if passband == 'clear':
         # transform the catalog values to R passband, which is roughly right
-        apass_cat[passband],apass_cat[passband+'_err'] =\
-                                    gri2R( np.array(apass_cat['Sloan_g']),
-                                    np.array(apass_cat['Sloan_r']),
-                                    np.array(apass_cat['Sloan_i']) )
+        apass_cat[passband],err = gri2R( np.array(apass_cat['Sloan_g']),
+                                  np.array(apass_cat['Sloan_r']),
+                                  np.array(apass_cat['Sloan_i']) )
     else:
         raise Exception('Passband not yet implemented.')
 
