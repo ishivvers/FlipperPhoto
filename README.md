@@ -44,44 +44,33 @@ These files have been flatfield-corrected, bias-corrected, and trimmed, but the 
 
 ## Current status and to-do:
 
- - Produce flat-fielded and bias-subtracted images from raw data for each telescope in a consistent manner
-  - DONE
- - Determine which of those images are "good" and worth working with, and which are "crap" (maybe bad weather, instrument problems, or KAIT going out of focus, etc.)
+ - Code currently has working astrometry and sextractor wrappers.
+ - Code currently has a roughup of the pipeline structure (in 'pipeline' branch)
+
+##### to do #####
+
+- come up with a way to determine whether an image is "good" or "bad" before we feed it to astrometry
+  - for "good" images that fail on astrometry, save them to a different location
+  - weikang has code that can interactively calculate the WCS
+  - we can make it easy for weikang to go through and calculate the WCS, then have him somehow mark the 
+    updated files as ready to run through the rest of the pipeline
   - extreme examples of "bad" images:
    - ``/media/raid0/Data/kait/2013/Jun25/Jun3pind.fts.Z``
    - ``/media/raid0/Data/kait/2015/Sep30/Sep5uihp.fts.Z``
   - examples of "good" images:
    - ``/media/raid0/Data/kait/2015/May20/May5khhh.fts.Z``
    - ``/media/raid0/Data/nickel/nickel150609/data/tfn150609.d206.sn2014c.V.fit``
- - *Current answer:*
-  - since astrometry is fundamental to our later steps, only images with successful
-    astrometry calculations are marked "good"
-  - this cuts quite a few images that *should* be good, but for some reason or another
-    astrometry.net does not successfully calculate their astrometry.  We should
-    improve upon this.
- - After the WCS information is added to the image header using astrometry.net, move the file to ``/media/raid0/Data/reduced_images/TELESCOPE/YYYYMMDD/*``, and rename the file to the following convention:
-   - targetName\_YYYYMMDD.dddd\_k-or-n\_filter\_c.fit
-    - use k or n to demarcate KAIT or Nickel
-    - filter should be one of B,V,R,I, or clear
-    - targetName from the file header
-    - YYYYMMDD.dddd is observation date with decimal days (out to 4 decimal points)
-    - include a c to mark this file as a fully calibrated image
-  - The skeleton code to do this is available in flipp/imgchecker/validators.py:moveFile()
- - For each image in the `reduced_images` folder, calculate the observed magnitude for each detected object
-   - use source extractor to pull out the instrumental magnitudes for all objects: DONE
-   - cross-match the source extractor catalogs to APASS stars and calculate the image zeropoint
-     - use [astroquery](http://www.astropy.org/astroquery/) to access APASS data
-     - plan to later have local storage of APASS data, to make this step faster
-     - use [astropy coordinates](http://astropy.readthedocs.io/en/latest/coordinates/) to cross-match the APASS catalog to our source extractor catalog
-     - translate APASS magnitudes into KAIT/Nickel passbands and calculate the zeropoint
-       - use color terms from Mo's thesis; talk to WK.
- - Populate a database of those results
-  - use MySQL
-  - one table for objects
-    - each row has RA,Dec,APASS\_ID,APASS\_mag,(maybe other catalog ids and mags),objectType
-    - all objects that are NOT in APASS/other catalogs should be noted as possible transients
-  - another table for observations
-    - each row includes the ObjectID,date,magnitude,error,passband
- - Further steps:
-   - perform image subtraction on new images to look for faint sources
-   - incorporate into realtime KAIT checking pipeline
+- source extractor
+  - write a method to examine an image and all of the check images in a nice graphic, to see whether sextractor is 
+    working as expected
+  - once we have that, decide on final version for all of the sextractor parameters.  Good guide [here](http://astroa.physics.metu.edu.tr/MANUALS/sextractor/Guide2source_extractor.pdf)
+- zeropoint
+  - create an interface to the SDSS data
+   - can do url tool like APASS, but is a bit complicated.
+   - see [here](http://skyserver.sdss.org/dr12/en/tools/search/form/searchform.aspx)
+  - future zeropoint cleanup:
+   - use [astroquery](http://www.astropy.org/astroquery/) to access APASS data
+   - plan to later have local storage of APASS data, to make this step faster
+   - use [astropy coordinates](http://astropy.readthedocs.io/en/latest/coordinates/) to cross-match the APASS catalog to our source extractor catalog
+- Populate a database of those results
+  - in progress
