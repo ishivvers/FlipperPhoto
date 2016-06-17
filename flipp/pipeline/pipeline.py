@@ -22,14 +22,10 @@ class image(object):
         self.fname = fname
         self.workingImage = None
         self.logfile = logfile
-
-        self.build_log()
-        self.pull_header_info() #populates a lot of self variables from the header
-
-        self.tempfolder = "/media/LocalStorage/tmp"
-        self.donefolder = "/media/LocalStorage/reduced_images/"+self.tel
-        
-        self.steps = [self.solve_astrometry,
+        self.build_log() 
+                
+        self.steps = [self.pull_header_info,
+                      self.solve_astrometry,
                       self.save_to_file,
                       self.extract_sources,
                       self.apply_zeropoint,
@@ -93,22 +89,28 @@ class image(object):
     def pull_header_info(self):
         """Pull relevant info from header file before going through the pipeline.
         """
-        self.header = fileio.get_head( self.fname )
-        inst = self.header.get('INSTRUME').strip()
-        if inst == 'K.A.I.T.':
-            self.tel = 'kait'
-        elif 'Nickel' in inst:
-            self.tel = 'nick'
-        # other tests?
-        if self.tel == 'nick':
-            self.filter = self.header['filtnam'].strip()
-            self.obsdate = datetime.strptime( self.header['date-obs']+' '+self.header['utmiddle'].split('.')[0], '%d/%m/%y %H:%M:%S' )
-        elif self.tel == 'kait':
-            self.filter = self.header['filters'].strip()
-            self.obsdate = datetime.strptime( self.header['date-obs']+' '+self.header['ut'], '%d/%m/%Y %H:%M:%S' )
-        self.objectname = self.header['object'].replace(' ','').replace('_','-').lower()
-        self.log.info('\n  IMAGE: %s \n  TELESCOPE: %s\n  FILTER: %s\n  DATE/TIME: %s\n  TARGET: %s'%(self.fname, self.tel, self.filter, self.obsdate.strftime('%Y-%m-%d %H:%M:%S'),self.objectname))
-        return
+        try:
+            self.header = fileio.get_head( self.fname )
+            inst = self.header.get('INSTRUME').strip()
+            if inst == 'K.A.I.T.':
+                self.tel = 'kait'
+            elif 'Nickel' in inst:
+                self.tel = 'nick'
+            # other tests?
+            if self.tel == 'nick':
+                self.filter = self.header['filtnam'].strip()
+                self.obsdate = datetime.strptime( self.header['date-obs']+' '+self.header['utmiddle'].split('.')[0], '%d/%m/%y %H:%M:%S' )
+            elif self.tel == 'kait':
+                self.filter = self.header['filters'].strip()
+                self.obsdate = datetime.strptime( self.header['date-obs']+' '+self.header['ut'], '%d/%m/%Y %H:%M:%S' )
+            self.objectname = self.header['object'].replace(' ','').replace('_','-').lower()
+            self.donefolder = "/media/LocalStorage/reduced_images/"+self.tel
+            self.log.info('\n  IMAGE: %s \n  TELESCOPE: %s\n  FILTER: %s\n  DATE/TIME: %s\n  TARGET: %s'%(self.fname, self.tel, self.filter, self.obsdate.strftime('%Y-%m-%d %H:%M:%S'),self.objectname))
+            return
+        except:
+            # image does not have all the keywords needed.  Fail it!
+            raise ImageFailedError('Image does not have necessary keywords in the header.')
+
     
     def solve_astrometry(self, pretest='sextractor'):
         """Perform astrometry on an image.
