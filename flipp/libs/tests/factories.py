@@ -9,7 +9,7 @@ from conf import FIXTURE_DIR
 
 GKAIT = os.path.join(FIXTURE_DIR, 'kait', 'goodkait.fits')
 
-def image_factory(length, peak='center'):
+def source_factory(length, peak='center'):
     """Creates a fake image with a single source object in the center."""
     data = np.zeros((length,)*2) # Create a L x L blank image
     if peak == 'center':
