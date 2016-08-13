@@ -205,13 +205,13 @@ class image(object):
         """This is where we will stick data into the database.
         """
         for source in self.sources:
-            db_object_id = _query_DB_object( source['ALPHA_J2000'], source['DELTA_J2000'] )
+            db_object_id = self._query_DB_object( source['ALPHA_J2000'], source['DELTA_J2000'] )
             if db_object_id == None:
                 # if an object at this coordinate doesn't exist yet, create one!
-                _create_new_DB_object( source )
-                db_object_id = _query_DB_object( source['ALPHA_J2000'], source['DELTA_J2000'] )
+                self._create_new_DB_object( source )
+                db_object_id = self._query_DB_object( source['ALPHA_J2000'], source['DELTA_J2000'] )
             # now that an object exists at this location, add this observation!
-            _add_observation( source, db_object_id )
+            self._add_observation( source, db_object_id )
         return
             
     def _query_DB_object( self, ra, decl, pos_tolerance=0.5 ):
@@ -219,17 +219,23 @@ class image(object):
         Queries DB for all objects within pos_tolerance arcseconds 
          of given coordinates in attempt to match to the coordinates.
         
+        UNRESOLVED PROBLEM:
+        - somehow this is finding all sources about 0.1 arcseconds apart from
+          each other in goodkait; what is going wrong there?
+         
         ra, decl: must be in decimal degrees
         pos_tolerance: the positional cross-match tolerance for sources to be marked
          the same; in arcseconds
         """
         # perform a first-pass query, pulling sources from a subset of the sky to compare against
-        sqlfind = 'SELECT id, (POW(ra - %s, 2) + POW(decl - %s, 2)) AS dist FROM objects '+\
-                  'HAVING dist < 10.0 ORDER BY dist LIMIT 10;' 
+        sqlfind = 'SELECT id,ra,decl, (POW(ra - %s, 2) + POW(decl - %s, 2)) AS dist '+\
+                  'FROM objects HAVING dist < 10.0 ORDER BY dist LIMIT 10;' 
+        vals = [ ra, decl ]
         c = self.DB.cursor()
+        print_sql( sqlfind, vals )
         c.execute( sqlfind, vals )
         r = c.fetchall( )
-        if r == None:
+        if len(r) == 0:
             # nothing even close; did not find a match
             return None
         else:
