@@ -43,7 +43,7 @@ class image(object):
         self.build_log()
         
         # connect to the DB
-        self.DB = MySQLdb.connect(host=creds.host, user=creds.user, passwd=creds.passwd, \
+        self.DB = MySQLdb.connect(host=creds.host, user=creds.user, passwd=creds.passwd,
                                   db=creds.db, cursorclass=MySQLdb.cursors.DictCursor)
          
         self.steps = [self.pull_header_info,
@@ -203,8 +203,6 @@ class image(object):
 
     def ingest_to_database(self):
         """This is where we will stick data into the database.
-        
-        pos_tolerance: positional tolerance for cross-matching sources
         """
         for source in self.sources:
             db_object_id = _query_DB_object( source['ALPHA_J2000'], source['DELTA_J2000'] )
@@ -231,15 +229,20 @@ class image(object):
         c = self.DB.cursor()
         c.execute( sqlfind, vals )
         r = c.fetchall( )
-        # calculate the true on-sky angular seperation of the nearest result
-        dist = coord.ang_sep(ra,decl, r[0]['ra'],r[0]['decl']) * 2.778e-4 # in arcseconds
-        
-        if dist <= pos_tolerance:
-            # found a match!
-            return r[0]['id']
-        else:
-            # did not find a match
+        if r == None:
+            # nothing even close; did not find a match
             return None
+        else:
+            # things are close, at least.
+            # now calculate the true on-sky angular seperation of the nearest result
+            #  to see if it's good enough
+            dist = coord.ang_sep(ra,decl, r[0]['ra'],r[0]['decl']) * 2.778e-4 # in arcseconds
+            if dist <= pos_tolerance:
+                # found a match!
+                return r[0]['id']
+            else:
+                # did not find a match
+                return None
         
     def _create_new_DB_object( self, source, objname='', objtype='' ):
         """
@@ -273,9 +276,6 @@ class image(object):
         c.execute( sqlinsert, vals )
         self.DB.commit()
         return
-                pass
-       
-
  
 def run_folder( fpath ):
     """Run all of the images in a folder through the pipeline
@@ -286,6 +286,4 @@ def run_folder( fpath ):
     for f in allfs:                     #  that match any search string in postfixs
         i = image(f)
         i.run()
-
-
 
