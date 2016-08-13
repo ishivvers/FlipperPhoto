@@ -1,9 +1,27 @@
 import os
 import logging
 
-from flipp.libs import fileio,astrometry,sextractor,zeropoint
+from flipp.libs import fileio,astrometry,sextractor,zeropoint,coord,julian_dates
+
+import MySQLdb
+import MySQLdb.cursors
+import credentials as creds # not included in git repo
 
 from datetime import datetime
+
+
+def print_sql( sql, vals=None ):
+    """
+    Prints an approximation of the sql string with vals inserted. Approximates cursor.execute( sql, vals ).
+    Note that internal quotes on strings will not be correct and these commands probably cannot actually be
+    run on MySQL - for debugging only!
+    """
+    print '\nSQL command:\n'
+    if vals == None:
+        print sql
+    else:
+        s = sql %tuple( map(str, vals) )
+        print s
 
 class image(object):
     """A class that handles an image being processed all the way
@@ -13,6 +31,10 @@ class image(object):
     def __init__(self, fname, tel, logfile=None):
         self.fname = fname
         self.logfile = logfile
+        
+        # connect to the DB
+        self.DB = MySQLdb.connect(host=creds.host, user=creds.user, passwd=creds.passwd, \
+                                  db=creds.db, cursorclass=MySQLdb.cursors.DictCursor)
         
         # find which telescope and filter this image is; maybe in a subfunction
         #  called pull_header_info
@@ -80,6 +102,10 @@ class image(object):
         elif self.tel == 'kait':
             self.filter = header['filters'].strip()
             self.obsdate = datetime.strptime( header['date-obs']+' '+header['ut'], '%d/%m/%Y %H:%M:%S' )
+        # calculate modified Julian date
+        jd = julian_dates.julian_date(self.obsdate.year, self.obsdate.month, self.obsdate.day, 
+                                      self.obsdate.hour, self.obsdate.minute, self.obsdate.second )
+        self.mjd = julian_dates.jd2mjd( jd )
         
     #############################################################################################
     
@@ -135,11 +161,76 @@ class image(object):
         self.savedfile = finalname
         return
 
-    def ingest_to_database(self, pos_tolerance=0.5):
+    def ingest_to_database(self):
         """This is where we will stick data into the database.
         
         pos_tolerance: positional tolerance for cross-matching sources
         """
-        pass
+        for source in self.sources:
+            db_object_id = _query_DB_object( source['ALPHA_J2000'], source['DELTA_J2000'] )
+            if db_object_id == None:
+                # if an object at this coordinate doesn't exist yet, create one!
+                _create_new_DB_object( source )
+                db_object_id = _query_DB_object( source['ALPHA_J2000'], source['DELTA_J2000'] )
+            # now that an object exists at this location, add this observation!
+            _add_observation( source, db_object_id )
+        return
+            
+    def _query_DB_object( self, ra, decl, pos_tolerance=0.5 ):
+        """
+        Queries DB for all objects within pos_tolerance arcseconds 
+         of given coordinates in attempt to match to the coordinates.
         
+        ra, decl: must be in decimal degrees
+        pos_tolerance: the positional cross-match tolerance for sources to be marked
+         the same; in arcseconds
+        """
+        # perform a first-pass query, pulling sources from a subset of the sky to compare against
+        sqlfind = 'SELECT id, (POW(ra - %s, 2) + POW(decl - %s, 2)) AS dist FROM objects '+\
+                  'HAVING dist < 10.0 ORDER BY dist LIMIT 10;' 
+        c = self.DB.cursor()
+        c.execute( sqlfind, vals )
+        r = c.fetchall( )
+        # calculate the true on-sky angular seperation of the nearest result
+        dist = coord.ang_sep(ra,decl, r[0]['ra'],r[0]['decl']) * 2.778e-4 # in arcseconds
+        
+        if dist <= pos_tolerance:
+            # found a match!
+            return r[0]['id']
+        else:
+            # did not find a match
+            return None
+        
+    def _create_new_DB_object( self, source, objname='', objtype='' ):
+        """
+        Create a new object in the database, given a source (i.e. a row of self.sources)
+        """
+        sqlinsert = "INSERT INTO objects (ra, decl, name, type) "+\
+                                 "VALUES (%s, %s, %s, %s);"
+        vals = [source['ALPHA_J2000'], source['DELTA_J2000'], objname, objtype]
+
+        # now go ahead and put it in
+        print_sql( sqlinsert, vals )
+        c = self.DB.cursor()
+        c.execute( sqlinsert, vals )
+        self.DB.commit()
+        return 
     
+    def _add_observation( self, source, db_object_id):
+        """
+        Add an observation to the database, crosslinked to a specific source on the sky.
+        
+        For now, this assumes all data is through the KAIT clearband, so it just
+         all goes into the kait_clear table.
+        """
+        sqlinsert = "INSERT INTO kait_clear (obj_id, mjd, mag, err) "+\
+                                 "VALUES (%s, %s, %s, %s);"
+        vals = [db_object_id, self.mjd, source['MAG_AUTO_ZP'], source['MAGERR_AUTO_ZP']]
+
+        # now go ahead and put it in
+        print_sql( sqlinsert, vals )
+        c = self.DB.cursor()
+        c.execute( sqlinsert, vals )
+        self.DB.commit()
+        return
+        
