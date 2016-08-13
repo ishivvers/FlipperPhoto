@@ -6,7 +6,7 @@ from flipp.libs import fileio,astrometry,sextractor,zeropoint,coord,julian_dates
 
 import MySQLdb
 import MySQLdb.cursors
-import credentials as creds # not included in git repo
+import cred as creds # not included in git repo
 
 from datetime import datetime
 from glob import glob
