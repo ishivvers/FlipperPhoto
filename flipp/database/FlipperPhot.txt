@@ -1,0 +1,18 @@
+CREATE DATABASE flipperphot;
+USE flipperphot;
+
+CREATE TABLE objects (
+  id INT NOT NULL AUTO_INCREMENT,
+  name VARCHAR(255),
+  type VARCHAR(255),
+  ra FLOAT,
+  decl FLOAT,
+  PRIMARY KEY (id) );
+
+CREATE TABLE kait_clear (
+  id INT, 
+  obj_id INT,
+  mjd FLOAT,
+  mag FLOAT,
+  err FLOAT
+  );
