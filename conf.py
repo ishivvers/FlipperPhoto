@@ -11,8 +11,14 @@ ASTROMETRYCONF = "/usr/local/astrometry/etc/astrometry.cfg"
 
 TELESCOPES = {
     "kait" : {
-        "pixscaleL" : 0.79,
-        "pixscaleH" : 0.80
+        "ASTROMETRY_OPTIONS" : {
+            "L" : 0.79, # --scale-low
+            "H" : 0.80  # --scale-high
+            },
+        "HEADER_MAPS" : {
+            "filter" : 'filtnam',
+            "obsdate" : [],
+            }
         },
     "nickel" : {
         "pixscaleL" : 0.36,

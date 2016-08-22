@@ -28,25 +28,25 @@ def Zeropoint_apass( sources, passband='clear' ):
         from flipp.libs.zeropoint import Zeropoint_apass
         from flipp.libs.sextractor import Sextractor
         from flipp.libs.astrometry import Astrometry
-        
+
         gkait = "flipp/fixtures/kait/goodkait.fits"
         x = Astrometry(gkait, 'kait')
         s = Sextractor()
         e = x.solve(N = 'TEST.fits')
         sources = s.extract(e)
-        
+
         sources = Zeropoint_apass(sources)
     """
 
     # find the middle of the field found in the image
     ra_c = np.mean( sources['ALPHA_J2000'] )
     dec_c = np.mean( sources['DELTA_J2000'] )
-    # find the radius needed to capture the whole field, taking spherical 
+    # find the radius needed to capture the whole field, taking spherical
     #  geometry into account
     radius = np.max( ang_sep(sources['ALPHA_J2000'],sources['DELTA_J2000'], ra_c,dec_c) )
     radius += 0.05 # add some slack, just to be safe
     apass_sources = APASS.query(ra_c, dec_c, radius)
-    
+
     # cross match the two catalogs
     image_matches, catalog_matches = indmatch( sources['ALPHA_J2000'],sources['DELTA_J2000'],
                                     apass_sources['radeg'],apass_sources['decdeg'], 1.0) # using a tolerance of 1.0" for now
@@ -67,4 +67,4 @@ def Zeropoint_apass( sources, passband='clear' ):
     # apply that zeropoint to all sources and return the fixed up catalog
     sources['MAG_AUTO_ZP'] = sources['MAG_AUTO']+zp
     sources['MAGERR_AUTO_ZP'] = (np.array(sources['MAGERR_AUTO'])**2+transf_err**2)**0.5
-    return sources
+    return sources, zp, len(sources)
