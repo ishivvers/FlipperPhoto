@@ -80,6 +80,12 @@ class shMixin(object):
         return stdout, stderr
 
     @classmethod
+    def man(cls):
+        from fabric.api import local
+        local("man {}".format())
+        filter(lambda x : x.startswith('-'), map(str.strip, args))
+
+    @classmethod
     def update_args(self, defaults, update_args):
         d = list(defaults)
         for u in update_args:
@@ -128,7 +134,6 @@ class FitsIOMixin(object):
             image.writeto(path, output_verify="silentfix")
 
         elif isinstance(obj, fits.hdu.hdulist.HDUList):
-            # or isinstance(obj, fits.hdu.image.PrimaryHDU):
             # Add handling for this if we want to pass in a non-HDUList object
             image = obj
             fp = obj.filename()
@@ -142,7 +147,6 @@ class FitsIOMixin(object):
                 name = os.path.split(fp)[1]
             else:
                 name = os.path.split(path)[1]
-
         else:
             # Aggressive type-checking for unhandled inputs
             excp = ("Unparseable object type %s.  Obj must be a filepath or"
@@ -151,21 +155,23 @@ class FitsIOMixin(object):
 
         return name, path, image
 
-    def _parse_telescope_config(self, obj):
+    def _parse_telescope_config(self, obj, p=None):
         if isinstance(obj, basestring):
             # Assume someone has set up a dictionary in conf.py
             try:
                 config = dict(TELESCOPES[obj])
+
             except AttributeError as e:
                 excp = "'%s' is not configured in TELESCOPES configuration."
                 raise ConfigurationError(excp %(obj))
         elif isinstance(obj, dict):
             config = dict(obj)
+
         else:
             excp = "Telescope Configuration must be one of %s or dictionary."
             preset = list(TELESCOPES.keys())
             raise TypeError(excp %(', '.join(['"%s"' %(x) for x in preset])))
-
+        if p : config = config[p]
         self.validate_telescope_config(config)
         return config
 
