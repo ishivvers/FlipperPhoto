@@ -8,6 +8,7 @@ import re
 import numpy as np
 import matplotlib.pyplot as plt
 
+import astropy
 from astropy.io import fits as pf
 from cStringIO import StringIO
 from matplotlib import cm
@@ -57,12 +58,12 @@ def get_head(pathname):
     return hdu[0].header
 
 exampleIm = os.path.join(FIXTURE_DIR, 'nickel', 'tfn150609.d206.sn2014c.V.fit')
-def plot_one_image(pathname=exampleIm):
+def plot_one_image(image=exampleIm):
     """Plot first image of single fits file.
     
     Parameters
     ----------
-    pathname : str, optional
+    image : str or astropy.io.fits.hdu.hdulist.HDUList, optional
         Defaults to the fixture "tfn150609.d206.sn2014c.V.fit"
 
     Note
@@ -70,11 +71,14 @@ def plot_one_image(pathname=exampleIm):
     Uses matplotlib.colors.LogNorm to scale data using 50th and 99.9th 
     percentile as ``vmin``, ``vmax`` respectively
     """
-    try:
-        hdu = pf.open(pathname)
-    except IOError:
-        # probably a zcatted image
-        hdu = get_zipped_fitsfile(pathname)
+    if type(image) == astropy.io.fits.hdu.hdulist.HDUList:
+        hdu = image
+    else:
+        try:
+            hdu = pf.open(image)
+        except IOError:
+            # probably a zcatted image
+            hdu = get_zipped_fitsfile(image)
 
     # the header is accessible like a dictionary:
     header = hdu[0].header

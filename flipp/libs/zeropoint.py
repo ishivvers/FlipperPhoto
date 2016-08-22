@@ -34,8 +34,7 @@ def Zeropoint_apass( sources, passband='clear' ):
         s = Sextractor()
         e = x.solve(N = 'TEST.fits')
         sources = s.extract(e)
-
-        sources = Zeropoint_apass(sources)
+        sources,zp,N = Zeropoint_apass(sources)
     """
 
     # find the middle of the field found in the image
@@ -63,8 +62,9 @@ def Zeropoint_apass( sources, passband='clear' ):
 
     # take the median as the zeropoint
     zp = np.median(apass_cat[passband] - image_cat['MAG_AUTO'])
+    N = len(image_matches)
 
     # apply that zeropoint to all sources and return the fixed up catalog
     sources['MAG_AUTO_ZP'] = sources['MAG_AUTO']+zp
     sources['MAGERR_AUTO_ZP'] = (np.array(sources['MAGERR_AUTO'])**2+transf_err**2)**0.5
-    return sources, zp, len(sources)
+    return sources,zp,N
