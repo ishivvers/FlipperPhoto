@@ -26,3 +26,13 @@ TELESCOPES = {
         },
 }
 
+DB_URL = "sqlite://"
+
+try:
+    local = os.environ.get("FLIPP_SETTINGS_MODULE", None)
+    if local:
+        import sys
+        sys.path.append(local)
+    from local_settings import *
+except ImportError:
+    pass
