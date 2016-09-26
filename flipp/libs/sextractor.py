@@ -9,7 +9,9 @@ from astropy.io.fits import hdu
 from astropy.table import Table
 
 from flipp.libs.utils import shMixin, FitsIOMixin
-from conf import SEXCONFPATH
+from flipp.conf import settings
+
+SEXCONFPATH = settings.SEXCONFPATH
 
 # ================
 # DEVELOPMENT NOTE
