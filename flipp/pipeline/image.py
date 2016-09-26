@@ -1,4 +1,4 @@
-# -*- coding : utf-8 -*-
+# -*- coding:utf-8 -*-
 
 from __future__ import unicode_literals
 from builtins import str
@@ -18,22 +18,13 @@ from flipp.libs.utils import FitsIOMixin
 
 SE = Sextractor()
 
-import os
-
-def mkdir(path):
-    try:
-        os.makedirs(path)
-    except OSError as exception:
-        if exception.errno != errno.EEXIST:
-            raise
-
 class ImageFailedError(Exception):
     """Simple pipeline error; raised when nothing is wrong
     but an image is bad.
     """
     pass
 
-class ImageProcessor(FitsIOMixin, object):
+class ImageParser(FitsIOMixin, object):
 
     def __init__(self, input_image, output_dir, telescope=None):
         self.output_dir = output_dir
@@ -44,15 +35,24 @@ class ImageProcessor(FitsIOMixin, object):
         self.telescope = telescope
         self.astrometry = Astrometry(self.image, self.telescope)
 
+    def __str__(self):
+        return str(unicode(self))
+
+    def __unicode__(self):
+        templ = "{object}_{date}_{telescope}_{filter}"
+
     @property
     def META(self):
         if not hasattr(self, '_M'):
             t = str(self.telescope)[0].lower()
-            # TEMPORARY TO WORK WITH KAIT
+            # ==============================================================
+            # TEMPORARY : Ultimately want this to be "smart" or input-driven
+            # ==============================================================
             HEADERMAPS = { 'FILTER' : 'FILTERS', 'DATE' : 'date-obs',
                 'TIME' : 'ut', 'OBJECT' : 'object'}
             H = {k : self.header[v].strip() \
                 for k, v in HEADERMAPS.iteritems() if self.header.get(v)}
+            # ==============================================================
             dt = "{0} {1}".format(H['DATE'], H['TIME'].split('.')[0])
             H['DATETIME'] = datetime.strptime(dt, "%d/%m/%Y %H:%M:%S")
             H['FRACTIONAL_DATE'] = '{:%Y%m%d}{}'.format(H['DATETIME'],
@@ -72,12 +72,13 @@ class ImageProcessor(FitsIOMixin, object):
         if len(sources) <= threshold:
             raise ValidationError(msg.format(threshold))
 
-    def solve_image(self):
+    def solve_field(self):
         """Perform astrometry, write image and extract sources."""
         # TODO : Find a way to limit runtime
 
         img = self.astrometry.solve()
         if not img: raise ImageFailedError("Unable to correct image coordinates.")
+
         name = "{object}_{date}_{telescope}_{filter}_cal.fits".format(
             object = self.META['OBJECT'],
             date = self.META['FRACTIONAL_DATE'],
@@ -89,6 +90,7 @@ class ImageProcessor(FitsIOMixin, object):
         if not os.path.exists(output_dir): mkdir(output_dir)
         self.output_file = os.path.join(output_dir, name)
         img.writeto(self.output_file)
+
         return SE.extract(img)
 
     def zeropoint(self, sources):
@@ -101,18 +103,26 @@ class ImageProcessor(FitsIOMixin, object):
             raise ImageFailedError('Not enough stars crossmatched to catalog (%d stars found)'%N)
         return cataloged_sources
 
-    def to_db(self, cataloged_sources):
-        raise NotImplementedError
-
-    def run(self, *args, **kwargs):
+    def parse(self, *args, **kwargs):
         try:
             self.validate()
-            sources = self.solve_image()
+            sources = self.solve_field()
             cataloged_sources = self.zeropoint(sources)
-            self.to_db(cataloged_sources)
+            return cataloged_sources
         except ImageFailedError:
             # Handle specific errors
             pass
+
+class SourceMatcher(object):
+
+    catalog = conf.DB_URL
+
+    @property
+    def engine(self):
+        if not self._engine:
+
+
+
 
 class ValidationError(Exception):
     pass
@@ -122,4 +132,5 @@ class ValidationError(Exception):
 # step 2 : Save to File <- load
 # step 3 : identify sources <- extract + transform
 # step 4 : zeropoint <- transform
-# step 5 : write to db <- load
+# step 6 : find match in db
+# step 6a. : If match, add an observation to said object
