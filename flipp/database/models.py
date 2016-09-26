@@ -1,4 +1,4 @@
-# -*- coding : utf-8 -*-
+# -*- coding:utf-8 -*-
 
 from __future__ import unicode_literals
 from builtins import str
@@ -44,7 +44,7 @@ class Telescope(FlippModel, Base):
 
     name = Column(String(length = 255, convert_unicode=True))
 
-class Brightness(FlippModel, Base):
+class Observation(FlippModel, Base):
 
     obj_id = Column(Integer,
         ForeignKey("{}.pk".format(Object.__tablename__)), nullable=False)
