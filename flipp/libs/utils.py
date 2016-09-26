@@ -1,4 +1,4 @@
-# -*- coding : utf-8 -*-
+# -*- coding:utf-8 -*-
 """
 A lot of photometry related code has yet to be ported and will most
 probably never be ported to a proper (and performant) python library.
@@ -9,12 +9,15 @@ python analogies of argument lists and keyword arguments.
 
 import os
 import shutil
+import logging
 
 from astropy.io import fits
 from subprocess import Popen, PIPE
 
 from tempfile import mktemp
-from conf import TELESCOPES
+from flipp.conf import settings
+
+TELESCOPES = settings.TELESCOPES
 
 from flipp.libs.fileio import get_zipped_fitsfile
 
@@ -26,6 +29,12 @@ from flipp.libs.fileio import get_zipped_fitsfile
 # from fabric.api import local, run
 # ---------------------------------
 
+def mkdir(path):
+    try:
+        os.makedirs(path)
+    except OSError as exception:
+        if exception.errno != errno.EEXIST:
+            pass
 
 class ConfigurationError(Exception):
 
@@ -186,3 +195,18 @@ class FitsIOMixin(object):
                 excp = "Improperly configured telescope.  Missing %s."
                 raise ConfigurationError(excp %(k))
             else: pass
+
+    def save_img(self, img, path_to_output):
+        if hasattr(img, "writeto"):
+            dirname = os.path.dirname(output_file)
+            if not os.path.exists(dirname): mkdir(dirname)
+            img.writeto(path_to_output)
+
+class LoggerMixin(object):
+    """Create class-instance specific log, uses conf.LOGGING as default."""
+
+    @property
+    def logger(self):
+        if not hasattr(self, '_logger'):
+
+        return self._logger
