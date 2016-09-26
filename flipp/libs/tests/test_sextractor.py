@@ -3,7 +3,7 @@ import os
 from unittest import TestCase
 
 from flipp.libs import sextractor as SE
-from conf import FIXTURE_DIR
+from flipp.conf import settings
 
 from .factories import image_factory
 
@@ -11,8 +11,8 @@ class TestSextractor(TestCase):
     """Test suite for source extractor wrapper."""
 
     def setUp(self):
-        self.good_kait = os.path.join(FIXTURE_DIR, 'kait', 'goodkait.fits')
-        self.bad_kait = os.path.join(FIXTURE_DIR, 'kait', 'badkait.fts.Z')
+        self.good_kait = os.path.join(settings.FIXTURE_DIR, 'kait', 'goodkait.fits')
+        self.bad_kait = os.path.join(settings.FIXTURE_DIR, 'kait', 'badkait.fts.Z')
         self.test_gimg = image_factory(1024, 'center') # Dummy good image
         self.test_bimg = image_factory(1024, 'side') # Dummy bad image
 

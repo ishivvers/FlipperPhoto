@@ -33,7 +33,11 @@ from tempfile import mktemp
 from astropy.io import fits
 
 from flipp.libs.utils import shMixin, FitsIOMixin
-from conf import SEXCONFPATH, ASTROMETRYCONF, TELESCOPES
+from flipp.conf import settings
+
+SEXCONFPATH = settings.SEXCONFPATH
+ASTROMETRYCONF = settings.ASTROMETRYCONF
+TELESCOPES = settings.TELESCOPES
 
 DEFAULT_CONF = "/usr/local/astrometry/etc/astrometry.cfg"
 """A version of this with reasonable defaults ought to be

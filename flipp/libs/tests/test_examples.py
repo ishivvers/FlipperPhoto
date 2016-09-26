@@ -17,9 +17,10 @@
 # from unittest import TestCase
 # from astropy.io import fits as pf
 
-# from conf import FIXTURE_DIR
+# from flipp.conf import settings
 # from flipp.libs import examples
 
+# FIXTURE_DIR = settings.FIXTURE_DIR
 
 # class Test_plot_one_image(TestCase):
 #     """Example TestCase, with ideas of what to test.

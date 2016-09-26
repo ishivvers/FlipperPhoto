@@ -12,11 +12,12 @@ import astropy
 from astropy.io import fits as pf
 from cStringIO import StringIO
 from matplotlib import cm
-from matplotlib.colors import LogNorm 
+from matplotlib.colors import LogNorm
 from subprocess import Popen, PIPE
 
-from conf import FIXTURE_DIR 
+from flipp.conf import settings
 
+FIXTURE_DIR = settings.FIXTURE_DIR
 
 def get_zipped_fitsfile(pathname):
     """Open a zipped fits file.
@@ -60,7 +61,7 @@ def get_head(pathname):
 exampleIm = os.path.join(FIXTURE_DIR, 'nickel', 'tfn150609.d206.sn2014c.V.fit')
 def plot_one_image(image=exampleIm):
     """Plot first image of single fits file.
-    
+
     Parameters
     ----------
     image : str or astropy.io.fits.hdu.hdulist.HDUList, optional
@@ -68,7 +69,7 @@ def plot_one_image(image=exampleIm):
 
     Note
     ----
-    Uses matplotlib.colors.LogNorm to scale data using 50th and 99.9th 
+    Uses matplotlib.colors.LogNorm to scale data using 50th and 99.9th
     percentile as ``vmin``, ``vmax`` respectively
     """
     if type(image) == astropy.io.fits.hdu.hdulist.HDUList:
@@ -92,15 +93,15 @@ def plot_one_image(image=exampleIm):
     plt.imshow(data, cmap=cm.gray, norm=LogNorm(vmin, vmax))
     plt.show()
 
- 
+
 def parse_insgenlog(pathname):
     """Parse a KAIT-produced insgen.log file.
-    
+
     Parameters
     ----------
     pathname : str
         filepath to log file, accepts *.log and *.log.Z (zipped) files.
-    
+
     Returns
     -------
     outd : dict
@@ -123,12 +124,12 @@ def fix_kait_header(pathname,outpathname=None):
     """Fix the headers in a KAIT image to be FITS-compliant,
     so that other Python codes play with them nicely.  Required before
     running astrometry solver.
-    
+
     Parameters
     ----------
     pathname : str
         filepath to KAIT fits image to correct, accepts *.fit (or similar), or *.fit.Z (or similar).
-    
+
     Returns
     -------
     newpathname : str
@@ -144,5 +145,3 @@ def fix_kait_header(pathname,outpathname=None):
         outpathname = base + '.fixed' + ext
     hdu.writeto( outpathname, clobber=True, output_verify='fix' )
     return outpathname
-
-

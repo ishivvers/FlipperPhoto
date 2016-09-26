@@ -1,12 +1,13 @@
-# -*- coding : utf-8 -*-
+# -*- coding:utf-8 -*-
 
 import os
 
 from astropy.io import fits
 import numpy as np
 
-from conf import FIXTURE_DIR
+from flipp.conf import settings
 
+FIXTURE_DIR = settings.FIXTURE_DIR
 GKAIT = os.path.join(FIXTURE_DIR, 'kait', 'goodkait.fits')
 
 def source_factory(length, peak='center'):
