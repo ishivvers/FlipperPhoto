@@ -7,14 +7,17 @@ to interact with external programs, porting over bash calls to their
 python analogies of argument lists and keyword arguments.
 """
 
+from __future__ import unicode_literals
+
 import os
+import errno
 import shutil
 import logging
 
 from astropy.io import fits
 from subprocess import Popen, PIPE
 
-from tempfile import mktemp
+from tempfile import mkstemp
 from flipp.conf import settings
 
 TELESCOPES = settings.TELESCOPES
@@ -138,9 +141,11 @@ class FitsIOMixin(object):
                 image = get_zipped_fitsfile(obj)
             name = os.path.split(obj)[1]
 
-            path = mktemp(prefix="COPY-{0}".format(os.path.splitext(name)[0]),
-                suffix=".fits")
-            image.writeto(path, output_verify="silentfix")
+            path = mkstemp(prefix="COPY-{0}".format(os.path.splitext(name)[0]),
+                suffix=".fits")[1]
+
+            with open(path, 'w') as f:
+                image.writeto(f, output_verify="silentfix")
 
         elif isinstance(obj, fits.hdu.hdulist.HDUList):
             # Add handling for this if we want to pass in a non-HDUList object
@@ -149,8 +154,9 @@ class FitsIOMixin(object):
             if inplace and fp:
                 path = fp
             else:
-                z = mktemp(suffix=".fits")
-                obj.writeto(z, output_verify="silentfix")
+                z = mkstemp(suffix=".fits")[1]
+                with open(z, 'w') as f:
+                    obj.writeto(f, output_verify="silentfix")
                 path = z
             if fp:
                 name = os.path.split(fp)[1]
@@ -202,11 +208,36 @@ class FitsIOMixin(object):
             if not os.path.exists(dirname): mkdir(dirname)
             img.writeto(path_to_output)
 
-class LoggerMixin(object):
-    """Create class-instance specific log, uses conf.LOGGING as default."""
+class FileLoggerMixin(object):
+    """Create class-instance specific log for processes which should generate
+    their own filelog.
+    """
 
     @property
     def logger(self):
-        if not hasattr(self, '_logger'):
+        return getattr(self, '_logger', self._configure_log())
 
-        return self._logger
+    def _configure_log(self):
+        logger = logging.getLogger(
+            getattr(self, "LOGGER_NAME", "standalone_log")
+            )
+        logger.handlers = []
+        logger.setLevel(
+            getattr(self, "LOGGER_LEVEL", logging.DEBUG)
+            )
+        fh = logging.FileHandler(
+            getattr(self, "LOGGER_FILE", mkstemp(suffix=".log", prefix=logger.name)[1]
+            ))
+        fh.setFormatter(
+            logging.Formatter(
+                getattr(self, "LOGGER_FORMAT", "(%(levelname)s) - %(asctime)s ::: %(message)s")
+            ))
+        logger.addHandler(fh)
+        if getattr(self, "LOGGER_CONSOLE", False):
+            sh = logging.StreamHandler()
+            sh.setFormatter(logging.Formatter(
+                getattr(self, "LOGGER_FORMAT", "(%(levelname)s) - %(asctime)s ::: %(message)s")
+                ))
+            logger.addHandler(sh)
+        self._logger = logger
+        return logger

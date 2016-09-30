@@ -4,9 +4,9 @@ import os
 import logging
 
 PROJECT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-FIXTURE_DIR = os.path.join(PROJECT_DIR, "flipp", "fixtures")
+FIXTURE_DIR = os.path.join(PROJECT_DIR, "fixtures")
 
-SEXCONFPATH = os.path.join(PROJECT_DIR, "flipp", "libs", "sextractor_config")
+SEXCONFPATH = os.path.join(PROJECT_DIR, "libs", "sextractor_config")
 ASTROMETRYCONF = "/usr/local/astrometry/etc/astrometry.cfg"
 #ASTROMETRYCONFPATH = os.path.join(PROJECT_DIR, "flipp", "libs", "astrometry")
 
@@ -57,7 +57,7 @@ LOGGING = {
         'console': {
             'level': 'DEBUG',
             'class': 'logging.StreamHandler',
-            'formatter': 'console'
+            'formatter': 'short'
             },
         'log_file': {
             'level': 'DEBUG',
@@ -75,7 +75,7 @@ LOGGING = {
             'propagate': False,
             },
         'flipp': {
-            'handlers' : ['console', 'log_file'],
+            'handlers' : ['log_file'],
             'level': 'DEBUG',
             'propagate': True,
 

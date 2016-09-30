@@ -9,8 +9,10 @@ the same directory as "flipp/conf"
 
 import os
 import imp
+import warnings
 
 from . import global_settings
+
 
 class LazySettings(object):
     """A django-esque lazy settings object, except a little dumber."""
@@ -27,13 +29,13 @@ class LazySettings(object):
             local_settings = imp.load_source('local_settings', settings_file)
             self.__setup(local_settings)
         except Exception as e:
-            print(e)
+            warnings.warn(unicode(e))
 
     def __setup(self, module):
         for setting in dir(module):
             if setting.isupper():
                 self.__registry__[setting] = module
-                print((setting, module))
+
 
     def __getattr__(self, name):
         """We maintain a registry of settings with the correct module to find them in.
