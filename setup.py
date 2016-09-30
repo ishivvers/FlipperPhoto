@@ -36,7 +36,7 @@ setup(
         'numpy',
         'astropy',
         'pandas',
-        'astroquery'],
+        'sqlalchemy'],
 
     extras_require={
         'dev': ['check-manifest', 'fabric'],

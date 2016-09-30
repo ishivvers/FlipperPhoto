@@ -3,7 +3,7 @@
 import os
 import re
 
-from tempfile import mktemp
+from tempfile import mkstemp
 
 from astropy.io.fits import hdu
 from astropy.table import Table
@@ -54,9 +54,9 @@ class Sextractor(sextractorConfig, shMixin, FitsIOMixin):
     def set_defaults(self):
         """Sets default settings for running sextractor."""
 
-        D = {"CATALOG_NAME" : mktemp(suffix=".txt", prefix="CATALOG_"), # Catalog
+        D = {"CATALOG_NAME" : mkstemp(suffix=".txt", prefix="CATALOG_")[1], # Catalog
             "CHECKIMAGE_TYPE" : "OBJECTS,BACKGROUND", # Objects
-            "CHECKIMAGE_NAME" : "%s,%s" %(mktemp(suffix=".fits", prefix="CHECK-OBJECTS_"), mktemp(suffix=".fits", prefix="CHECK-BKGRND_")),
+            "CHECKIMAGE_NAME" : "%s,%s" %(mkstemp(suffix=".fits", prefix="CHECK-OBJECTS_")[1], mkstemp(suffix=".fits", prefix="CHECK-BKGRND_")[1]),
             "FILTER_NAME" : default_filter,
             "PARAMETERS_NAME" : default_param,
             "c" : default_sex,

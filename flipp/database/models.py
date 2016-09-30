@@ -23,33 +23,20 @@ class FlippModel(object):
     def __repr__(self):
         return "<{} : {}>".format(str(self), self.pk)
 
-    pk = Column(Integer, primary_key=True)
+    pk = Column(Integer, primary_key=True, autoincrement=True)
 
-class Object(FlippModel, Base):
-
-    name = Column(String(length = 255, convert_unicode=True))
-    type = Column(String(length = 255, convert_unicode=True))
-    right_ascension = Column(Float)
-    declination = Column(Float)
-
-    @property
-    def ra(self):
-        return self.right_ascension
-
-    @property
-    def dec(self):
-        return self.declination
-
-class Telescope(FlippModel, Base):
+class Source(FlippModel, Base):
 
     name = Column(String(length = 255, convert_unicode=True))
+    classification = Column(String(length = 255, convert_unicode=True))
+    ra = Column(Float)
+    dec = Column(Float)
 
 class Observation(FlippModel, Base):
 
-    obj_id = Column(Integer,
-        ForeignKey("{}.pk".format(Object.__tablename__)), nullable=False)
-    telescope = Column(Integer,
-        ForeignKey("{}.pk".format(Telescope.__tablename__)), nullable=False)
+    source = Column(Integer,
+        ForeignKey("{}.pk".format(Source.__tablename__)), nullable=False)
+    telescope = Column(String(length = 255, convert_unicode=True))
     modified_julian_date = Column(Float)
     magnitude = Column(Float)
     error = Column(Float)
