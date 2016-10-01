@@ -21,7 +21,7 @@ class SourceMatcher(object):
     def find_or_create_object(self, source, tolerance = 0.5):
         ra = source['ALPHA_J2000']
         dec = source['DELTA_J2000']
-        dist = "SQRT((POW(ra - :ra, 2) + POW(dec - :dec, 2)))"
+        dist = "POW(ra - :ra, 2) + POW(dec - :dec, 2)"
         sql = text("{} < 10.0".format(dist)).params(ra=ra, dec=dec)
         objects = self.session.query(models.Source).filter(sql).order_by(
             text(dist).params(ra=ra,dec=dec))
@@ -29,7 +29,7 @@ class SourceMatcher(object):
         created = False
         if not objects.count() == 0:
             o = objects.first()
-            if coord.ang_sep(ra, dec, o.ra, o.dec) * 2.7784E-4 <= tolerance:
+            if (coord.ang_sep(ra, dec, o.ra, o.dec) / 2.7784E-4) <= tolerance:
                 obj = o
         if not obj:
             obj = self.create_object(source)
