@@ -50,7 +50,7 @@ setup(
 
     entry_points={
         'console_scripts': [
-            'flippimgparse=flipp.pipeline:console_run',
+            'flipprun=flipp.pipeline:console_run',
         ],
     },
 )
