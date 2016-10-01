@@ -197,7 +197,7 @@ FWHM_WORLD               FWHM assuming a gaussian core                          
 #POLAR_WORLD              (A_WORLD^2 - B_WORLD^2)/(A_WORLD^2 + B_WORLD^2)          
 #POLARWIN_IMAGE           (AWIN^2 - BWIN^2)/(AWIN^2 + BWIN^2)                      
 #POLARWIN_WORLD           (AWIN^2 - BWIN^2)/(AWIN^2 + BWIN^2)                      
-#CLASS_STAR               S/G classifier output                                    
+CLASS_STAR               S/G classifier output                                    
 #VIGNET                   Pixel data around detection                               [count]
 #VIGNET_SHIFT             Pixel data around detection, corrected for shift          [count]
 #VECTOR_ASSOC             ASSOCiated parameter vector                              
