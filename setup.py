@@ -49,7 +49,7 @@ setup(
 
     entry_points={
         'console_scripts': [
-            'flippsolve=flipp.libs.astrometry:flippsolve',
+            'flippimgparse=flipp.pipeline:console_run',
         ],
     },
 )
