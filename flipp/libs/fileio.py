@@ -32,7 +32,7 @@ def get_zipped_fitsfile(pathname):
     hdu : astropy.io.fits.hdu.image.PrimaryHDU
         pyFits object
     """
-    p = Popen(["zcat", pathname], stdout=PIPE)
+    p = Popen(["zcat", pathname], stdout=PIPE, close_fds=True)
     hdu = pf.open( StringIO(p.communicate()[0]) )
     # avoid some dumb bugs, not important
     hdu.verify('fix')
