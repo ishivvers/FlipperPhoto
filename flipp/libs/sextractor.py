@@ -110,3 +110,13 @@ class Sextractor(sextractorConfig, shMixin, FitsIOMixin):
         if flag_filter:
             catalog = catalog[ catalog['FLAGS'] == 0 ]
         return catalog
+
+    def extract_stars(self, filepath_or_buffer, *args, **kwargs):
+        sources = self.extract(filepath_or_buffer, *args, **kwargs)
+        n = sources['FWHM_IMAGE'].median()
+        kwargs.update({"SEEING_FWHM" : n })
+        return self.extract(filepath_or_buffer, *args, **kwargs)
+
+from flipp.conf import settings
+
+settings.TELESCOPES[]
