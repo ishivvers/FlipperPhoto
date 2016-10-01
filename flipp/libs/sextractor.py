@@ -25,6 +25,7 @@ SEXCONFPATH = settings.SEXCONFPATH
 default_sex = os.path.join(SEXCONFPATH, "default.sex")
 default_param = os.path.join(SEXCONFPATH, "default.param")
 default_filter = os.path.join(SEXCONFPATH, "gauss_3.0_5x5.conv")
+default_nnw = os.path.join(SEXCONFPATH, "default.nnw")
 
 class sextractorConfig(object):
 
@@ -59,6 +60,7 @@ class Sextractor(sextractorConfig, shMixin, FitsIOMixin):
             "CHECKIMAGE_NAME" : "%s,%s" %(mkstemp(suffix=".fits", prefix="CHECK-OBJECTS_")[1], mkstemp(suffix=".fits", prefix="CHECK-BKGRND_")[1]),
             "FILTER_NAME" : default_filter,
             "PARAMETERS_NAME" : default_param,
+            "STARNNW_NAME" : default_nnw,
             "c" : default_sex,
             }
         return D
