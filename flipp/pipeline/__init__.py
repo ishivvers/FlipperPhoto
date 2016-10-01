@@ -16,7 +16,7 @@ def run(path_to_img, path_to_output, telescope):
             "/home/ttu/Desktop/goodkait", telescope="kait")
     """
     img = ImageParser(path_to_img, path_to_output, telescope)
-    sources = I.run()
+    sources = img.run()
     if not sources:
         return
     matcher = SourceMatcher(sources, img.META)
