@@ -3,12 +3,14 @@
 import os
 import re
 import numpy as np
+import matplotlib.pyplot as plt
 
 from tempfile import mkstemp
 
 from astropy.io.fits import hdu
 from astropy.table import Table
 
+from flipp.libs.fileio import plot_one_image
 from flipp.libs.utils import shMixin, FitsIOMixin
 from flipp.conf import settings
 SEXCONFPATH = settings.SEXCONFPATH
@@ -85,8 +87,6 @@ class Sextractor(sextractorConfig, shMixin, FitsIOMixin):
 
         Note
         ----
-        Currently, CHECK_IMGS are deleted.  This is fairly easy to change
-        if we decide to actually use them for something.
 
         Return
         ------
@@ -97,13 +97,17 @@ class Sextractor(sextractorConfig, shMixin, FitsIOMixin):
         name, path, image = self._parse_input(filepath_or_buffer)
         self.last_cmd = self.configure(*args, **options)
         output = self.sh(path, *args, **options)
+       
+        # ===========================================================
+        # Keep track of the check images
+        chk_imgs = options.get("CHECKIMAGE_NAME").split(",")
+        for c in chk_imgs:
+            if 'OBJECTS' in c:
+                self.chk_objects = c
+            elif 'BKGRND' in c: 
+                self.chk_bkgrnd = c
+        # ===========================================================
 
-        # ===========================================================
-        # Delete all CHECK Images for now, it doesn't seem like we're
-        # using them.  If we want to use them, then modify this block
-        # for c in options.get("CHECKIMAGE_NAME").split(","):
-        #     os.remove(c)
-        # ===========================================================
         catalog = Table.read(options.get("CATALOG_NAME"), format="ascii.sextractor")
         # Cleanup catalog file
         # os.remove(options.get("CATALOG_NAME"))

@@ -62,7 +62,7 @@ def get_head(pathname):
     return hdu[0].header
 
 exampleIm = os.path.join(FIXTURE_DIR, 'nickel', 'tfn150609.d206.sn2014c.V.fit')
-def plot_one_image(image=exampleIm):
+def plot_one_image(image=exampleIm, title=None, normalize='auto'):
     """Plot first image of single fits file.
 
     Parameters
@@ -72,8 +72,10 @@ def plot_one_image(image=exampleIm):
 
     Note
     ----
-    Uses matplotlib.colors.LogNorm to scale data using 50th and 99.9th
-    percentile as ``vmin``, ``vmax`` respectively
+    if normalize == 'auto', uses matplotlib.colors.LogNorm to scale data using 50th and 99.9th
+    percentile as ``vmin``, ``vmax`` respectively (default).
+    if normalize == 'log', plots data in logscale.
+    otherwise, plots it with no scaling.
     """
     if type(image) == astropy.io.fits.hdu.hdulist.HDUList:
         hdu = image
@@ -91,10 +93,18 @@ def plot_one_image(image=exampleIm):
 
     # the super simple way to inspect the file within Python is via imshow, but
     #  fancier alternatives exist too.
-    vmin = np.percentile(data, 50)
-    vmax = np.percentile(data, 99.9)
-    plt.imshow(data, cmap=cm.gray, norm=LogNorm(vmin, vmax))
-    plt.show()
+    fig = plt.figure()
+    if normalize == 'auto':
+        vmin = np.percentile(data, 50)
+        vmax = np.percentile(data, 99.9)
+        plt.imshow(data, cmap=cm.gray, norm=LogNorm(vmin, vmax))
+    elif normalize == 'log':
+        plt.imshow( np.log10(data), cmap=cm.gray)
+    else:
+        plt.imshow( data, cmap=cm.gray )
+    if title != None:
+        plt.title( title )
+    return fig
 
 
 def parse_insgenlog(pathname):
