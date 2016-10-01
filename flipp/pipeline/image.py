@@ -1,7 +1,6 @@
 # -*- coding:utf-8 -*-
 
 from __future__ import unicode_literals
-from builtins import str
 
 import os
 import errno
@@ -65,16 +64,17 @@ class ImageParser(FitsIOMixin, FileLoggerMixin, object):
     @property
     def META(self):
         if not hasattr(self, '_M'):
-            t = str(self.telescope)[0].lower()
+            t = unicode(self.telescope)[0].lower()
 
             # ==============================================================
             # TEMPORARY : Ultimately want this to be "smart" or input-driven
             # ==============================================================
             HEADERMAPS = { 'FILTER' : 'FILTERS', 'DATE' : 'date-obs',
                 'TIME' : 'ut', 'OBJECT' : 'object'}
+            # ==============================================================
             H = {k : self.header[v].strip() \
                 for k, v in HEADERMAPS.iteritems() if self.header.get(v)}
-            # ==============================================================
+
             dt = "{0} {1}".format(H['DATE'], H['TIME'].split('.')[0])
             H['DATETIME'] = datetime.strptime(dt, "%d/%m/%Y %H:%M:%S")
             H['FRACTIONAL_DATE'] = '{:%Y%m%d}{}'.format(H['DATETIME'],
