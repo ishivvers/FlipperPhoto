@@ -29,12 +29,12 @@ def console_run():
     parser = argparse.ArgumentParser(
         description='Run flipp pipeline on a file with some output directory.')
 
-    parser.add_argument('-i', '--input_file', metavar= "input_file", type=str,
-        nargs=1, help="filepath to image.")
-    parser.add_argument("-o", "--output_dir", metavar="output_dir", type=str,
-        nargs = 1, help = "Directory in which to save outputs")
-    parser.add_argument("-t", "--telescope", metavar = "telescope",
-        choices = settings.TELESCOPES.keys(), nargs=1,
+    parser.add_argument("input_file", metavar= "input_file", type=str,
+        help="filepath to image.")
+    parser.add_argument("output_dir", metavar="output_dir", type=str,
+        help = "Directory in which to save outputs")
+    parser.add_argument("telescope", metavar = "telescope",
+        choices = settings.TELESCOPES.keys(),
         help = 'Telescope name from allowed names, {}'.format(
             ', '.join(settings.TELESCOPES))
         )
