@@ -2,6 +2,7 @@
 """Python wrapper for Sextractor, with python-friendly config."""
 import os
 import re
+import numpy as np
 
 from tempfile import mkstemp
 
@@ -10,7 +11,6 @@ from astropy.table import Table
 
 from flipp.libs.utils import shMixin, FitsIOMixin
 from flipp.conf import settings
-
 SEXCONFPATH = settings.SEXCONFPATH
 
 # ================
@@ -112,11 +112,19 @@ class Sextractor(sextractorConfig, shMixin, FitsIOMixin):
         return catalog
 
     def extract_stars(self, filepath_or_buffer, *args, **kwargs):
+        """Extract sources on an image, attempt to classify
+        each source as star/not-star, and return only those
+        sources labeled a star.
+        """
+        thresh = kwargs.pop('thresh',0.5) # the threshold applied to 
+                                          #  source extactor's CLASS_STAR
         sources = self.extract(filepath_or_buffer, *args, **kwargs)
-        n = sources['FWHM_IMAGE'].median()
-        kwargs.update({"SEEING_FWHM" : n })
-        return self.extract(filepath_or_buffer, *args, **kwargs)
+        pix_scale = 0.8  # this telescope-dependant number should be
+                         #  stored along with other parameters of the
+                         #  telesope, probably in global config file.
+        seeing = np.median( pix_scale * sources['FWHM_IMAGE'] )
+        kwargs.update({"SEEING_FWHM" : seeing })
+        sources = self.extract(filepath_or_buffer, *args, **kwargs)
+        return sources[ sources['CLASS_STAR'] >= thresh ]
+       
 
-from flipp.conf import settings
-
-settings.TELESCOPES[]

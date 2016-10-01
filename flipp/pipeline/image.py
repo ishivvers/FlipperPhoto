@@ -118,7 +118,7 @@ class ImageParser(FitsIOMixin, FileLoggerMixin, object):
         with open(output_file, 'w') as f:
             img.writeto(f)
 
-        return SE.extract_image(img)
+        return SE.extract_stars(img)
 
     def zeropoint(self, sources):
         threshold = 3
