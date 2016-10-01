@@ -14,6 +14,8 @@ from cStringIO import StringIO
 from matplotlib import cm
 from matplotlib.colors import LogNorm
 from subprocess import Popen, PIPE
+from fabric.api import local, hide
+
 
 from flipp.conf import settings
 
@@ -32,8 +34,9 @@ def get_zipped_fitsfile(pathname):
     hdu : astropy.io.fits.hdu.image.PrimaryHDU
         pyFits object
     """
-    p = Popen(["zcat", pathname], stdout=PIPE, close_fds=True)
-    hdu = pf.open( StringIO(p.communicate()[0]) )
+    with hide("everything"):
+        img = local("zcat {}".format(pathname), capture=True)
+    hdu = pf.open(StringIO(img))
     # avoid some dumb bugs, not important
     hdu.verify('fix')
     return hdu
