@@ -70,9 +70,15 @@ class ImageParser(FitsIOMixin, FileLoggerMixin, object):
 
             # ==============================================================
             # TEMPORARY : Ultimately want this to be "smart" or input-driven
+            #
+            # Note: the fits header keyword 'datid' is present for KAIT
+            #  images, but not in Nickel ones.  Weikang requests that we use
+            #  the filename of the original image, which should be encoded
+            #  in the filename of the input file like the regex "d\d{3}".
+            #  For example, the string "d123" or "d237".
             # ==============================================================
             HEADERMAPS = { 'FILTER' : 'FILTERS', 'DATE' : 'date-obs',
-                'TIME' : 'ut', 'OBJECT' : 'object'}
+                'TIME' : 'ut', 'OBJECT' : 'object', 'DATID' : 'datid' }
             # ==============================================================
             H = {k : self.header[v].strip() \
                 for k, v in HEADERMAPS.iteritems() if self.header.get(v)}
@@ -88,6 +94,7 @@ class ImageParser(FitsIOMixin, FileLoggerMixin, object):
                     *map( lambda x : getattr(H['DATETIME'], x),
                         ['year', 'month', 'day', 'hour', 'minute', 'second']))
             H['INSTRUMENT'] = self.telescope
+            H['OBJECT'] = H['OBJECT'].replace('_','-').replace(' ','-')
             self._M = H
         return self._M
 
@@ -110,7 +117,7 @@ class ImageParser(FitsIOMixin, FileLoggerMixin, object):
 
         self.logger.info("Successfully performed astrometry on %(img)s",
             {"img" : self.file})
-        name = "{object}_{date}_{telescope}_{filter}_cal.fits".format(
+        name = "{object}_{date}_{telescope}_{filter}_c.fit".format(
             object = self.META['OBJECT'],
             date = self.META['FRACTIONAL_DATE'],
             telescope = self.telescope,
