@@ -32,6 +32,7 @@ setup(
     keywords='astronomy photometry',
 
     packages=find_packages(exclude=['contrib', 'docs', 'tests']),
+
     install_requires=['future',
         'numpy>=1.1.0',
         'astropy>=1.2.0',
@@ -40,8 +41,9 @@ setup(
         'fabric>=1.12.0'],
 
     extras_require={
-        'dev': ['check-manifest', 'fabric'],
+        'dev': ['check-manifest'],
         'test': ['coverage', 'nose'],
+        'psql' : ['psycopg2'],
     },
 
     package_data={
