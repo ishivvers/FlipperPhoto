@@ -6,6 +6,7 @@ import os
 import errno
 import logging
 import numpy as np
+import matplotlib.pyplot as plt
 
 from datetime import datetime, timedelta
 from glob import glob
@@ -14,6 +15,7 @@ from flipp.libs.sextractor import Sextractor
 from flipp.libs.astrometry import Astrometry
 from flipp.libs.zeropoint import Zeropoint_apass
 from flipp.libs.utils import FitsIOMixin, FileLoggerMixin, mkdir
+from flipp.libs.fileio import plot_one_image
 
 from flipp.libs import julian_dates
 
@@ -68,9 +70,15 @@ class ImageParser(FitsIOMixin, FileLoggerMixin, object):
 
             # ==============================================================
             # TEMPORARY : Ultimately want this to be "smart" or input-driven
+            #
+            # Note: the fits header keyword 'datid' is present for KAIT
+            #  images, but not in Nickel ones.  Weikang requests that we use
+            #  the filename of the original image, which should be encoded
+            #  in the filename of the input file like the regex "d\d{3}".
+            #  For example, the string "d123" or "d237".
             # ==============================================================
             HEADERMAPS = { 'FILTER' : 'FILTERS', 'DATE' : 'date-obs',
-                'TIME' : 'ut', 'OBJECT' : 'object'}
+                'TIME' : 'ut', 'OBJECT' : 'object', 'DATID' : 'datid' }
             # ==============================================================
             H = {k : self.header[v].strip() \
                 for k, v in HEADERMAPS.iteritems() if self.header.get(v)}
@@ -86,6 +94,7 @@ class ImageParser(FitsIOMixin, FileLoggerMixin, object):
                     *map( lambda x : getattr(H['DATETIME'], x),
                         ['year', 'month', 'day', 'hour', 'minute', 'second'])) - 2400000.5
             H['INSTRUMENT'] = self.telescope
+            H['OBJECT'] = H['OBJECT'].replace('_','-').replace(' ','-')
             self._M = H
         return self._M
 
@@ -108,7 +117,7 @@ class ImageParser(FitsIOMixin, FileLoggerMixin, object):
 
         self.logger.info("Successfully performed astrometry on %(img)s",
             {"img" : self.file})
-        name = "{object}_{date}_{telescope}_{filter}_cal.fits".format(
+        name = "{object}_{date}_{telescope}_{filter}_c.fit".format(
             object = self.META['OBJECT'],
             date = self.META['FRACTIONAL_DATE'],
             telescope = self.telescope,
@@ -117,8 +126,11 @@ class ImageParser(FitsIOMixin, FileLoggerMixin, object):
         output_file = os.path.join(self.output_dir, name)
         with open(output_file, 'w') as f:
             img.writeto(f)
+        
+        return img
 
-        return SE.extract_stars(img)
+    def extract_stars(self, img, *args, **kwargs):
+        return SE.extract_stars(img, *args, **kwargs)
 
     def zeropoint(self, sources):
         threshold = 3
@@ -130,10 +142,30 @@ class ImageParser(FitsIOMixin, FileLoggerMixin, object):
             raise ImageFailedError('Not enough stars crossmatched to catalog (%d stars found)'%N)
         return cataloged_sources
 
+    def diagnostic_plots(self, *args, **kwargs):
+        """Create a few quick plots of the sources identified,
+        the background, et cetera, for given image.
+        """
+        img = self.solve_field()
+        stellar_sources = self.extract_stars( img, *args, **kwargs )
+        all_sources = SE.extract( img ) 
+
+        fig0 = plot_one_image( self.image, title='Input Image' )
+        # mark all sources identified
+        plt.scatter( all_sources['X_IMAGE_DBL'], all_sources['Y_IMAGE_DBL'],
+                     c='firebrick', marker='x', s=50 )
+
+        fig1 = plot_one_image( SE.chk_bkgrnd, title='Background' )
+        fig2 = plot_one_image( SE.chk_objects, title='Objects', normalize='log' )
+        # mark all sources labeled as stars
+        plt.scatter( stellar_sources['X_IMAGE_DBL'], stellar_sources['Y_IMAGE_DBL'],
+                     c='firebrick', marker='x', s=50 )
+        plt.show()
+
     def run(self, *args, **kwargs):
         try:
             self.validate()
-            sources = self.solve_field()
+            sources = self.extract_stars( self.solve_field() )
             cataloged_sources = self.zeropoint(sources)
             return cataloged_sources
         except ImageFailedError as e:
