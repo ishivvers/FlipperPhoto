@@ -84,7 +84,7 @@ class ImageParser(FitsIOMixin, FileLoggerMixin, object):
                     seconds = H['DATETIME'].second).total_seconds()/(60.*60.*24.)).lstrip('0'))
             H['MJD'] = julian_dates.julian_date(
                     *map( lambda x : getattr(H['DATETIME'], x),
-                        ['year', 'month', 'day', 'hour', 'minute', 'second']))
+                        ['year', 'month', 'day', 'hour', 'minute', 'second'])) - 2400000.5
             H['INSTRUMENT'] = self.telescope
             self._M = H
         return self._M
