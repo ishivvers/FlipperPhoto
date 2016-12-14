@@ -10,17 +10,24 @@ python analogies of argument lists and keyword arguments.
 from __future__ import unicode_literals
 
 import os
+import sys
 import errno
 import shutil
 import logging
 
 from astropy.io import fits
-from subprocess import Popen, PIPE
+
+if sys.version_info < (3, 3):
+    import subprocess32 as subprocess
+else:
+    import subprocess
 
 from tempfile import mkstemp
 from flipp.conf import settings
 
 TELESCOPES = settings.TELESCOPES
+Popen = subprocess.Popen
+PIPE = subprocess.PIPE
 
 from flipp.libs.fileio import get_zipped_fitsfile
 
@@ -70,6 +77,7 @@ class shMixin(object):
     """
 
     cmd = ""
+    timeout = None
 
     @classmethod
     def configure(cls, *args, **kwargs):
@@ -114,7 +122,7 @@ class shMixin(object):
     @classmethod
     def sh(cls, *args, **kwargs):
         cmd = cls.configure(*args, **kwargs)
-        stdout, stderr = Popen(cmd, shell=True, stdout=PIPE, stderr=PIPE).communicate()
+        stdout, stderr = Popen(cmd, shell=True, stdout=PIPE, stderr=PIPE).communicate(timeout=cls.timeout)
         return cls.process_cmd(stdout, stderr)
 
 class FitsIOMixin(object):
