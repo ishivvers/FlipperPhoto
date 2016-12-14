@@ -48,8 +48,9 @@ temporary for now."""
 class Astrometry(shMixin, FitsIOMixin):
 
     cmd = "solve-field" # For shMixin
-    required_config_keys = ("H",
-        "L",) # For FitsIOMixin
+    required_config_keys = ("H", "L",) # For FitsIOMixin
+    timeout = 60
+
 
     def __init__(self, fp_or_buffer, telescope_config):
         """Runs atrometry on a single fits file/image.
