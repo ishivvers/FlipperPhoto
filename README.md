@@ -42,12 +42,7 @@ The filenames here start with tfn (Trimmed, Flatfielded, Nickel images), then in
 These files have been flatfield-corrected, bias-corrected, and trimmed, but the other files in the same folder (i.e., ``n*.fit``) are the un-corrected versions.  We will use the ``tfn*.fit`` files.
 
 
-## Current status and to-do:
-
- - Code currently has working astrometry and sextractor wrappers.
- - Code currently has a roughup of the pipeline structure (in 'pipeline' branch)
-
-##### to do #####
+### to do ###
 
 - come up with a way to determine whether an image is "good" or "bad" before we feed it to astrometry
   - for "good" images that fail on astrometry, save them to a different location
@@ -60,17 +55,3 @@ These files have been flatfield-corrected, bias-corrected, and trimmed, but the 
   - examples of "good" images:
    - ``/media/raid0/Data/kait/2015/May20/May5khhh.fts.Z``
    - ``/media/raid0/Data/nickel/nickel150609/data/tfn150609.d206.sn2014c.V.fit``
-- source extractor
-  - write a method to examine an image and all of the check images in a nice graphic, to see whether sextractor is 
-    working as expected
-  - once we have that, decide on final version for all of the sextractor parameters.  Good guide [here](http://astroa.physics.metu.edu.tr/MANUALS/sextractor/Guide2source_extractor.pdf)
-- zeropoint
-  - create an interface to the SDSS data
-   - can do url tool like APASS, but is a bit complicated.
-   - see [here](http://skyserver.sdss.org/dr12/en/tools/search/form/searchform.aspx)
-  - future zeropoint cleanup:
-   - use [astroquery](http://www.astropy.org/astroquery/) to access APASS data
-   - plan to later have local storage of APASS data, to make this step faster
-   - use [astropy coordinates](http://astropy.readthedocs.io/en/latest/coordinates/) to cross-match the APASS catalog to our source extractor catalog
-- Populate a database of those results
-  - in progress
