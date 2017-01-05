@@ -23,8 +23,14 @@ TELESCOPES = {
             }
         },
     "nickel" : {
-        "pixscaleL" : 0.36,
-        "pixscaleH" : 0.38,
+        "ASTROMETRY_OPTIONS" : {
+            "L" : 0.36, # --scale-low
+            "H" : 0.38  # --scale-high
+            },
+        "HEADER_MAPS" : {
+            "filter" : 'filtnam',
+            "obsdate" : [],
+            }
         },
 }
 
