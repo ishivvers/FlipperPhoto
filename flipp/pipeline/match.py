@@ -36,11 +36,11 @@ class SourceMatcher(object):
             if coord.ang_sep(ra, dec, o.ra, o.dec) / 2.7784E-4 <= tolerance:
                 obj = o
         if not obj:
-            obj = self.create_object(source)
+            obj = self.create_source(source)
             created = True
         return obj, created
 
-    def create_object(self, source, name="", classification=""):
+    def create_source(self, source, name="", classification=""):
         ra = source['ALPHA_J2000']
         dec = source['DELTA_J2000']
         s = models.Source(
@@ -67,15 +67,20 @@ class SourceMatcher(object):
         return created, img
 
     def add_observation(self, source, obj):
-        created, img = self.get_or_create_image()
-        obs = models.Observation(source=obj.pk,
-                                 image=img.pk,
-                                 magnitude=source['MAG_AUTO_ZP'],
-                                 error=source['MAGERR_AUTO_ZP'],
-                                 )
+        img_created, img = self.get_or_create_image()
+        q = {
+            'source' : obj.pk,
+            'image' : img.pk,
+        }
+        if not self.session.query(models.Observation).filter_by(**q).first():
+            q.update({
+                    'magnitude' : source['MAG_AUTO_ZP'],
+                    'error' : source['MAGERR_AUTO_ZP']
+                    })
+            obs = models.Observation(**q)
+            self.session.add(obs)
+            self.session.commit()
 
-        self.session.add(obs)
-        self.session.commit()
 
     def run(self):
         n_updated = 0
