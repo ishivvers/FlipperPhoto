@@ -13,23 +13,33 @@ Session = sessionmaker(bind=engine)
 
 class SourceMatcher(object):
 
-    def __init__(self, cataloged_sources, meta):
+    def __init__(self, cataloged_sources, img, telescope):
         self.sources = cataloged_sources
-        self.meta = meta
+        self.telescope = telescope
+        self.image = img
+        self.meta = img.META
         self.session = Session()
 
     def find_or_create_object(self, source, tolerance = 0.5):
         ra = source['ALPHA_J2000']
         dec = source['DELTA_J2000']
-        dist = "POW(ra - :ra, 2) + POW(dec - :dec, 2)"
-        sql = text("{} < 10.0".format(dist)).params(ra=ra, dec=dec)
-        objects = self.session.query(models.Source).filter(sql).order_by(
-            text(dist).params(ra=ra,dec=dec))
+        # dist = "POW(ra - :ra, 2) + POW(dec - :dec, 2)"
+        # query = text("{} < 10.0".format(dist)).params(ra=ra, dec=dec)
+        # order = text(dist).params(ra=ra, dec=dec)
+        # objects = self.session.query(models.Source).filter(
+        #     "{} < 10.0".format(dist).params(ra=ra, dec=dec)
+        # ).order_by(order)
+        # objects = self.session.query(models.Source).filter(sql).order_by(
+        #            text(dist).params(ra=ra,dec=dec))
+        dist = func.sqrt(func.pow(models.Source.ra - ra, 2) + \
+                         func.pow(models.Source.dec - dec, 2))
+        objects=self.session.query(models.Source).filter(dist < 3)
+                ).order_by(dist)
         obj = None
         created = False
         if not objects.count() == 0:
             o = objects.first()
-            if (coord.ang_sep(ra, dec, o.ra, o.dec) / 2.7784E-4) <= tolerance:
+            if coord.ang_sep(ra, dec, o.ra, o.dec) / 2.7784E-4 <= tolerance:
                 obj = o
         if not obj:
             obj = self.create_object(source)
@@ -44,6 +54,9 @@ class SourceMatcher(object):
         self.session.add(s)
         self.session.commit()
         return s
+
+    def get_or_create_image(self):
+        self.session.query(models.Image).filter()
 
     def add_observation(self, source, obj):
         obs = models.Observation(source = obj.pk,
