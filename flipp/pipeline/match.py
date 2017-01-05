@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import unicode_literals
-import pandas as pd
+
+import os
 
 from flipp.database import engine, models
 from flipp.libs import coord
@@ -11,30 +12,23 @@ from sqlalchemy import func, text
 
 Session = sessionmaker(bind=engine)
 
+
 class SourceMatcher(object):
 
-    def __init__(self, cataloged_sources, img, telescope):
-        self.sources = cataloged_sources
-        self.telescope = telescope
-        self.image = img
-        self.meta = img.META
+    def __init__(self, imgparser):
+        self.img = imgparser
+        self.sources = imgparser.sources
+        self.telescope = imgparser.telescope
+        self.meta = imgparser.META
         self.session = Session()
 
-    def find_or_create_object(self, source, tolerance = 0.5):
+    def find_or_create_source(self, source, tolerance=0.5):
         ra = source['ALPHA_J2000']
         dec = source['DELTA_J2000']
-        # dist = "POW(ra - :ra, 2) + POW(dec - :dec, 2)"
-        # query = text("{} < 10.0".format(dist)).params(ra=ra, dec=dec)
-        # order = text(dist).params(ra=ra, dec=dec)
-        # objects = self.session.query(models.Source).filter(
-        #     "{} < 10.0".format(dist).params(ra=ra, dec=dec)
-        # ).order_by(order)
-        # objects = self.session.query(models.Source).filter(sql).order_by(
-        #            text(dist).params(ra=ra,dec=dec))
-        dist = func.sqrt(func.pow(models.Source.ra - ra, 2) + \
+        dist = func.sqrt(func.pow(models.Source.ra - ra, 2) +
                          func.pow(models.Source.dec - dec, 2))
-        objects=self.session.query(models.Source).filter(dist < 3)
-                ).order_by(dist)
+        objects = self.session.query(
+            models.Source).filter(dist < 3).order_by(dist)
         obj = None
         created = False
         if not objects.count() == 0:
@@ -50,22 +44,35 @@ class SourceMatcher(object):
         ra = source['ALPHA_J2000']
         dec = source['DELTA_J2000']
         s = models.Source(
-            ra=ra, dec=dec, name = name, classification=classification)
+            ra=ra, dec=dec, name=name, classification=classification)
         self.session.add(s)
         self.session.commit()
         return s
 
     def get_or_create_image(self):
-        self.session.query(models.Image).filter()
+        # self.session.query(models.Image).filter(name=)
+        created = False
+        q = {'name': os.path.relpath(self.img.output_file, self.img.output_root),
+             'telescope': self.telescope,
+             'passband': self.meta['FILTER'],
+             }
+
+        img = self.session.query(models.Image).filter_by(**q).first()
+        if not img:
+            q.update(mjd = round(self.meta['MJD'], 5))
+            img = models.Image(**q)
+            self.session.add(img)
+            self.session.commit()
+            created = True
+        return created, img
 
     def add_observation(self, source, obj):
-        obs = models.Observation(source = obj.pk,
-            telescope = self.meta['INSTRUMENT'],
-            modified_julian_date = self.meta['MJD'],
-            magnitude = source['MAG_AUTO_ZP'],
-            error = source['MAGERR_AUTO_ZP'],
-            filter = self.meta["FILTER"],
-            )
+        created, img = self.get_or_create_image()
+        obs = models.Observation(source=obj.pk,
+                                 image=img.pk,
+                                 magnitude=source['MAG_AUTO_ZP'],
+                                 error=source['MAGERR_AUTO_ZP'],
+                                 )
 
         self.session.add(obs)
         self.session.commit()
@@ -74,7 +81,7 @@ class SourceMatcher(object):
         n_updated = 0
         n_created = 0
         for source in self.sources:
-            obj, created = self.find_or_create_object(source)
+            obj, created = self.find_or_create_source(source)
             if created:
                 n_created += 1
             else:
