@@ -3,15 +3,27 @@ import numpy as np
 from flipp.libs.coord import ang_sep, indmatch
 from flipp.libs.apass import Client as APASS
 
-def gri2R( g,r,i ):
-    """Use the transformations listed at http://classic.sdss.org/dr7/algorithms/sdssUBVRITransform.html
-    to transform gri passbands into an estimate of R.
+def gr2R( g,r ):
+    """Use the Lupton 2005 transformations listed at
+    http://classic.sdss.org/dr7/algorithms/sdssUBVRITransform.html
+    to transform g,r passbands into R.
 
     Returns array of R and float estimate of systematic RMS error of transformation.
     """
-    V = g - 0.58*(g-r) - 0.01
-    R = V - (0.38*(r-i) + 0.27)
-    return R, (0.02**2 + 0.02**2)**0.5
+    R = r - 0.1837*(g - r) - 0.0971
+    sigma = 0.0106
+    return R, sigma
+
+def ri2I( r,i ):
+    """Use the Lupton 2005 transformations listed at
+    http://classic.sdss.org/dr7/algorithms/sdssUBVRITransform.html
+    to transform r,i passbands into I.
+
+    Returns array of I and float estimate of systematic RMS error of transformation.
+    """
+    I = r - 1.2444*(r - i) - 0.3820
+    sigma = 0.0078
+    return R, sigma
 
 def Zeropoint_apass( sources, passband='clear' ):
     """Given a source extractor catalog calculated from a single image,
@@ -53,18 +65,31 @@ def Zeropoint_apass( sources, passband='clear' ):
     image_cat = sources[ image_matches ]
     apass_cat = apass_sources[ catalog_matches ]
     if passband == 'clear':
-        # transform the catalog values to R passband, which is roughly right
-        apass_cat[passband],transf_err = gri2R( np.array(apass_cat['Sloan_g']),
-                                                np.array(apass_cat['Sloan_r']),
-                                                np.array(apass_cat['Sloan_i']) )
+        # transform the catalog values to R passband, which is roughly correct
+        apass_cat_passband,transf_err = gr2R( np.array(apass_cat['Sloan_g']),
+                                              np.array(apass_cat['Sloan_r']) )
+    elif passband == 'B':
+        apass_cat_passband = apass_cat['Johnson_B']
+        transf_err = 0.0
+    elif passband == 'V':
+        apass_cat_passband = apass_cat['Johnson_V']
+        transf_err = 0.0
+    elif passband == 'R':
+        apass_cat_passband,transf_err = gr2R( np.array(apass_cat['Sloan_g']),
+                                              np.array(apass_cat['Sloan_r']) )
+    elif passpand == 'I':
+        apass_cat_passband,transf_err = ri2I( np.array(apass_cat['Sloan_r']),
+                                              np.array(apass_cat['Sloan_i']) )
     else:
-        raise Exception('Passband not yet implemented.')
+        raise Exception('Passband not implemented.')
 
     # take the median as the zeropoint
-    zp = np.median(apass_cat[passband] - image_cat['MAG_AUTO'])
+    zp = np.median(apass_cat_passband - image_cat['MAG_AUTO'])
     N = len(image_matches)
 
-    # apply that zeropoint to all sources and return the fixed up catalog
+    # apply that zeropoint to all sources and return the fixed up catalog.
+    # NOTE: right now, I assume our errors dominate over any errors from the
+    #  zeropoint or transforms, but this may merit improvement later.
     sources['MAG_AUTO_ZP'] = sources['MAG_AUTO']+zp
-    sources['MAGERR_AUTO_ZP'] = (np.array(sources['MAGERR_AUTO'])**2+transf_err**2)**0.5
+    sources['MAGERR_AUTO_ZP'] = sources['MAGERR_AUTO']
     return sources,zp,N
