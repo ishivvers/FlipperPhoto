@@ -20,7 +20,7 @@ def run(path_to_img, path_to_output, telescope):
     img = ImageParser(path_to_img, path_to_output, telescope)
     sources = img.run()
     if not sources: return
-    matcher = SourceMatcher(sources, img.META)
+    matcher = SourceMatcher(sources, img)
     n_created, n_updated = matcher.run()
 
 def console_run():
