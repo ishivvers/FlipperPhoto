@@ -2,15 +2,17 @@
 """Python wrapper for Sextractor, with python-friendly config."""
 import os
 import re
+import numpy as np
+import matplotlib.pyplot as plt
 
 from tempfile import mkstemp
 
 from astropy.io.fits import hdu
 from astropy.table import Table
 
+from flipp.libs.fileio import plot_one_image
 from flipp.libs.utils import shMixin, FitsIOMixin
 from flipp.conf import settings
-
 SEXCONFPATH = settings.SEXCONFPATH
 
 # ================
@@ -25,6 +27,7 @@ SEXCONFPATH = settings.SEXCONFPATH
 default_sex = os.path.join(SEXCONFPATH, "default.sex")
 default_param = os.path.join(SEXCONFPATH, "default.param")
 default_filter = os.path.join(SEXCONFPATH, "gauss_3.0_5x5.conv")
+default_nnw = os.path.join(SEXCONFPATH, "default.nnw")
 
 class sextractorConfig(object):
 
@@ -59,23 +62,16 @@ class Sextractor(sextractorConfig, shMixin, FitsIOMixin):
             "CHECKIMAGE_NAME" : "%s,%s" %(mkstemp(suffix=".fits", prefix="CHECK-OBJECTS_")[1], mkstemp(suffix=".fits", prefix="CHECK-BKGRND_")[1]),
             "FILTER_NAME" : default_filter,
             "PARAMETERS_NAME" : default_param,
+            "STARNNW_NAME" : default_nnw,
             "c" : default_sex,
             }
         return D
 
-    # def getimgfile(self, filepath_or_buffer):
-    #     fp = filepath_or_buffer
-    #     if isinstance(fp, str): return fp
-    #     if isinstance(fp, file): return fp.name
-    #     if isinstance(fp, hdu.hdulist.HDUList) or \
-    #         isinstance(fp, hdu.image.PrimaryHDU):
-    #         z = mktemp(suffix=".fits")
-    #         fp.writeto(z)
-    #         return z
 
     def get_output_filepaths(self, dict_config):
         return {"catalog" : dict_config.get('CATALOG_NAME', None),
             "check_imgs" : dict_config.get('CHECKIMAGE_NAME').split(',')}
+
 
     def extract(self, filepath_or_buffer, flag_filter=True, *args, **kwargs):
         """Run source-extractor (sextractor) on the given image.
@@ -83,8 +79,7 @@ class Sextractor(sextractorConfig, shMixin, FitsIOMixin):
 
         Note
         ----
-        Currently, CHECK_IMGS are deleted.  This is fairly easy to change
-        if we decide to actually use them for something.
+
 
         Return
         ------
@@ -93,18 +88,58 @@ class Sextractor(sextractorConfig, shMixin, FitsIOMixin):
         options = self.set_defaults()
         options.update(kwargs)
         name, path, image = self._parse_input(filepath_or_buffer)
+        self.path = path
         self.last_cmd = self.configure(*args, **options)
-        output = self.sh(path, *args, **options)
+        output = self.sh(self.path, *args, **options)
 
         # ===========================================================
-        # Delete all CHECK Images for now, it doesn't seem like we're
-        # using them.  If we want to use them, then modify this block
-        # for c in options.get("CHECKIMAGE_NAME").split(","):
-        #     os.remove(c)
+        # Keep track of the check images
+        chk_imgs = options.get("CHECKIMAGE_NAME").split(",")
+        for c in chk_imgs:
+            if 'OBJECTS' in c:
+                self.chk_objects = c
+            elif 'BKGRND' in c:
+                self.chk_bkgrnd = c
         # ===========================================================
+
         catalog = Table.read(options.get("CATALOG_NAME"), format="ascii.sextractor")
-        # Cleanup catalog file
-        # os.remove(options.get("CATALOG_NAME"))
+
+        # Cleanup tmp files
+        """
+        ORIGINALLY, there were plans to refine some kind of output using these.
+        Due to practical time constraints, we just delete them for now.
+        """
+        os.remove(options.get("CATALOG_NAME"))
+        os.remove(self.chk_objects)
+        os.remove(self.chk_bkgrnd)
+
         if flag_filter:
             catalog = catalog[ catalog['FLAGS'] == 0 ]
         return catalog
+
+    @property
+    def path(self):
+        return self._path
+
+    @path.setter
+    def path(self, fp):
+        if hasattr(self, '_path'):
+            if os.path.exists(self._path):
+                os.remove(self._path)
+        self._path = fp
+
+    def extract_stars(self, filepath_or_buffer, *args, **kwargs):
+        """Extract sources on an image, attempt to classify
+        each source as star/not-star, and return only those
+        sources labeled a star.
+        """
+        thresh = kwargs.pop('thresh',0.5) # the threshold applied to
+                                          #  source extactor's CLASS_STAR
+        sources = self.extract(filepath_or_buffer, *args, **kwargs)
+        pix_scale = 0.8  # this telescope-dependant number should be
+                         #  stored along with other parameters of the
+                         #  telesope, probably in global config file.
+        seeing = np.median( pix_scale * sources['FWHM_IMAGE'] )
+        kwargs.update({"SEEING_FWHM" : seeing })
+        sources = self.extract(filepath_or_buffer, *args, **kwargs)
+        return sources[ sources['CLASS_STAR'] >= thresh ]

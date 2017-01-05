@@ -28,7 +28,6 @@ class FlippModel(object):
 class Source(FlippModel, Base):
 
     name = Column(String(length = 255, convert_unicode=True))
-    classification = Column(String(length = 255, convert_unicode=True))
     ra = Column(Float)
     dec = Column(Float)
 
@@ -37,7 +36,8 @@ class Observation(FlippModel, Base):
     source = Column(Integer,
         ForeignKey("{}.pk".format(Source.__tablename__)), nullable=False)
     telescope = Column(String(length = 255, convert_unicode=True))
-    modified_julian_date = Column(Float)
+    mjd = Column(Float)
     magnitude = Column(Float)
     error = Column(Float)
-    filter = Column(String(length = 100, convert_unicode=True))
+    passband = Column(String(length = 100, convert_unicode=True))
+    image_name = Column(String(length=999), convert_unicode=True)) # e.g. 201501100/name_of_image.fits
