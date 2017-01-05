@@ -8,8 +8,9 @@ FIXTURE_DIR = os.path.join(PROJECT_DIR, "fixtures")
 
 SEXCONFPATH = os.path.join(PROJECT_DIR, "libs", "sextractor_config")
 ASTROMETRYCONF = "/usr/local/astrometry/etc/astrometry.cfg"
-#ASTROMETRYCONFPATH = os.path.join(PROJECT_DIR, "flipp", "libs", "astrometry")
+#ASTROMETRYCONFPATH = os.path.Desktopjoin(PROJECT_DIR, "flipp", "libs", "astrometry")
 
+OUTPUT_ROOT = os.path.abspath(os.path.join(os.path.expanduser('~'), "FLIPPOUT"))
 
 TELESCOPES = {
     "kait" : {

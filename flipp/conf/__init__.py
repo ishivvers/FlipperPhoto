@@ -36,7 +36,6 @@ class LazySettings(object):
             if setting.isupper():
                 self.__registry__[setting] = module
 
-
     def __getattr__(self, name):
         """We maintain a registry of settings with the correct module to find them in.
         Note that ``__getattr__`` is only called if ``__getattribute__`` fails, meaning
