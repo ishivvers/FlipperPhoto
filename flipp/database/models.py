@@ -38,7 +38,7 @@ class Image(FlippModel, Base):
     telescope = Column(String(length = 255, convert_unicode=True))
     mjd = Column(Float)
     passband = Column(String(length = 100, convert_unicode=True))
-    name = Column(String(length=999, convert_unicode=True) # e.g. 201501100/name_of_image.fits
+    name = Column(String(length=999, convert_unicode=True)) # e.g. 201501100/name_of_image.fits
 
 
 class Observation(FlippModel, Base):
