@@ -18,9 +18,9 @@ from flipp.libs.utils import FitsIOMixin, FileLoggerMixin, mkdir
 from flipp.libs.fileio import plot_one_image
 
 from flipp.libs import julian_dates
+from flipp.conf import settings
 
 SE = Sextractor()
-
 logger = logging.getLogger(__name__)
 
 class ImageFailedError(Exception):
@@ -34,7 +34,7 @@ class ValidationError(Exception):
 
 class ImageParser(FitsIOMixin, FileLoggerMixin, object):
 
-    def __init__(self, input_image, output_dir, telescope=None):
+    def __init__(self, input_image, output_dir=None, telescope=None):
         name, path, images = self._parse_input(input_image)
         self.name = name
         self.file = path
@@ -42,9 +42,14 @@ class ImageParser(FitsIOMixin, FileLoggerMixin, object):
         self.header = self.image[0].header
         self.telescope = telescope
         self.astrometry = Astrometry(self.image, self.telescope)
-        self.output_dir = os.path.join(output_dir,
-            '{:%Y%m%d}'.format(self.META['DATETIME']))
+        self.output_root = output_dir or settings.OUTPUT_ROOT
+        self.output_dir = os.path.join(
+                            self.output_root,
+                            '{:%Y%m%d}'.format(self.META['DATETIME'])
+                        )
+        self.output_file = None # Filled in at solve_field
         mkdir(self.output_dir)
+        self.sources = None
         self._set_log_conf()
 
     def __str__(self):
@@ -124,9 +129,10 @@ class ImageParser(FitsIOMixin, FileLoggerMixin, object):
             filter = self.META['FILTER']
             )
         output_file = os.path.join(self.output_dir, name)
+
         with open(output_file, 'w') as f:
             img.writeto(f)
-        
+            self.output_file = output_file
         return img
 
     def extract_stars(self, img, *args, **kwargs):
@@ -148,7 +154,7 @@ class ImageParser(FitsIOMixin, FileLoggerMixin, object):
         """
         img = self.solve_field()
         stellar_sources = self.extract_stars( img, *args, **kwargs )
-        all_sources = SE.extract( img ) 
+        all_sources = SE.extract( img )
 
         fig0 = plot_one_image( self.image, title='Input Image' )
         # mark all sources identified
@@ -167,6 +173,7 @@ class ImageParser(FitsIOMixin, FileLoggerMixin, object):
             self.validate()
             sources = self.extract_stars( self.solve_field() )
             cataloged_sources = self.zeropoint(sources)
+            self.sources = cataloged_sources
             return cataloged_sources
         except ImageFailedError as e:
             self.logger.error("%(img)s encountered an error %(e)s",

@@ -8,7 +8,7 @@ from flipp.pipeline.match import SourceMatcher
 
 from flipp.conf import settings
 
-def run(path_to_img, path_to_output, telescope):
+def run(path_to_img, path_to_output=None, telescope=None):
     """Business logic for running task.
 
     Example
@@ -19,8 +19,9 @@ def run(path_to_img, path_to_output, telescope):
     """
     img = ImageParser(path_to_img, path_to_output, telescope)
     sources = img.run()
-    if not sources: return
-    matcher = SourceMatcher(sources, img)
+    if not sources:
+        return
+    matcher = SourceMatcher(img)
     n_created, n_updated = matcher.run()
 
 def console_run():
@@ -30,12 +31,13 @@ def console_run():
 
     parser.add_argument("input_file", metavar= "input_file", type=str,
         help="filepath to image.")
-    parser.add_argument("output_dir", metavar="output_dir", type=str,
+    parser.add_argument("-o", "--output_dir", metavar="output_dir", type=str,
         help = "Directory in which to save outputs")
-    parser.add_argument("telescope", metavar = "telescope",
+    parser.add_argument("-t", "--telescope", metavar = "telescope",
         choices = settings.TELESCOPES.keys(),
         help = 'Telescope name from allowed names, {}'.format(
-            ', '.join(settings.TELESCOPES))
+            ', '.join(settings.TELESCOPES)),
+        default='kait'
         )
 
     args = parser.parse_args()
