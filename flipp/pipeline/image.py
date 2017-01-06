@@ -35,10 +35,11 @@ class ValidationError(Exception):
 class ImageParser(FitsIOMixin, FileLoggerMixin, object):
 
     def __init__(self, input_image, output_dir=None, telescope=None):
-        name, path, images = self._parse_input(input_image)
+        name, path, image = self._parse_input(input_image)
         self.name = name
         self.file = path
-        self.image = images
+        self.image = image
+        # Preprocessing?  see META
         self.header = self.image[0].header
         self.telescope = telescope
         self.astrometry = Astrometry(self.image, self.telescope)
