@@ -33,7 +33,11 @@ from tempfile import mktemp
 from astropy.io import fits
 
 from flipp.libs.utils import shMixin, FitsIOMixin
-from conf import SEXCONFPATH, ASTROMETRYCONF, TELESCOPES
+from flipp.conf import settings
+
+SEXCONFPATH = settings.SEXCONFPATH
+ASTROMETRYCONF = settings.ASTROMETRYCONF
+TELESCOPES = settings.TELESCOPES
 
 DEFAULT_CONF = "/usr/local/astrometry/etc/astrometry.cfg"
 """A version of this with reasonable defaults ought to be
@@ -44,8 +48,9 @@ temporary for now."""
 class Astrometry(shMixin, FitsIOMixin):
 
     cmd = "solve-field" # For shMixin
-    required_config_keys = ("pixscaleL",
-        "pixscaleH",) # For FitsIOMixin
+    required_config_keys = ("H", "L",) # For FitsIOMixin
+    timeout = 60
+
 
     def __init__(self, fp_or_buffer, telescope_config):
         """Runs atrometry on a single fits file/image.
@@ -58,7 +63,7 @@ class Astrometry(shMixin, FitsIOMixin):
             'kait', 'nickel' or user specified config
         """
         name, path, image = self._parse_input(fp_or_buffer)
-        telescope_config = self._parse_telescope_config(telescope_config)
+        telescope_config = self._parse_telescope_config(telescope_config, 'ASTROMETRY_OPTIONS')
         self.name = name
         self.path = path
         self.image = image
@@ -73,11 +78,12 @@ class Astrometry(shMixin, FitsIOMixin):
             ('t' , 2), # --tweak-order
             ('O' , None), # --overwrite
             ('p' , None), # --no-plots
+            ('2' , None), # --no-fits2fits
             ("3" , self.image[0].header["RA"].strip()), # --ra
             ("4" , self.image[0].header["DEC"].strip()), # --dec
             ("5" , 0.3), # --radius
-            ("L" , self.telescope['pixscaleL']), # --scale-low
-            ("H" , self.telescope['pixscaleH']), # --scale-high
+            ("L" , self.telescope['L']), # --scale-low
+            ("H" , self.telescope['H']), # --scale-high
             ("D" , os.path.dirname(os.path.abspath(self.path))), # --dir
             ("N" , mktemp(suffix=".fits",
                     prefix = "SOLVED-%s" %(self.name))), # --new-fits

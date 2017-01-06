@@ -1,4 +1,4 @@
-# -*- coding : utf-8 -*-
+# -*- coding:utf-8 -*-
 """
 A lot of photometry related code has yet to be ported and will most
 probably never be ported to a proper (and performant) python library.
@@ -7,14 +7,27 @@ to interact with external programs, porting over bash calls to their
 python analogies of argument lists and keyword arguments.
 """
 
+from __future__ import unicode_literals
+
 import os
+import sys
+import errno
 import shutil
+import logging
 
 from astropy.io import fits
-from subprocess import Popen, PIPE
 
-from tempfile import mktemp
-from conf import TELESCOPES
+if sys.version_info < (3, 3):
+    import subprocess32 as subprocess
+else:
+    import subprocess
+
+from tempfile import mkstemp
+from flipp.conf import settings
+
+TELESCOPES = settings.TELESCOPES
+Popen = subprocess.Popen
+PIPE = subprocess.PIPE
 
 from flipp.libs.fileio import get_zipped_fitsfile
 
@@ -26,6 +39,12 @@ from flipp.libs.fileio import get_zipped_fitsfile
 # from fabric.api import local, run
 # ---------------------------------
 
+def mkdir(path):
+    try:
+        os.makedirs(path)
+    except OSError as exception:
+        if exception.errno != errno.EEXIST:
+            pass
 
 class ConfigurationError(Exception):
 
@@ -58,6 +77,7 @@ class shMixin(object):
     """
 
     cmd = ""
+    timeout = None
 
     @classmethod
     def configure(cls, *args, **kwargs):
@@ -80,6 +100,12 @@ class shMixin(object):
         return stdout, stderr
 
     @classmethod
+    def man(cls):
+        from fabric.api import local
+        local("man {}".format())
+        filter(lambda x : x.startswith('-'), map(str.strip, args))
+
+    @classmethod
     def update_args(self, defaults, update_args):
         d = list(defaults)
         for u in update_args:
@@ -96,7 +122,7 @@ class shMixin(object):
     @classmethod
     def sh(cls, *args, **kwargs):
         cmd = cls.configure(*args, **kwargs)
-        stdout, stderr = Popen(cmd, shell=True, stdout=PIPE, stderr=PIPE).communicate()
+        stdout, stderr = Popen(cmd, shell=True, stdout=PIPE, stderr=PIPE).communicate(timeout=cls.timeout)
         return cls.process_cmd(stdout, stderr)
 
 class FitsIOMixin(object):
@@ -123,26 +149,27 @@ class FitsIOMixin(object):
                 image = get_zipped_fitsfile(obj)
             name = os.path.split(obj)[1]
 
-            path = mktemp(prefix="COPY-{0}".format(os.path.splitext(name)[0]),
-                suffix=".fits")
-            image.writeto(path, output_verify="silentfix")
+            path = mkstemp(prefix="COPY-{0}".format(os.path.splitext(name)[0]),
+                suffix=".fits")[1]
+
+            with open(path, 'w') as f:
+                image.writeto(f, output_verify="silentfix")
 
         elif isinstance(obj, fits.hdu.hdulist.HDUList):
-            # or isinstance(obj, fits.hdu.image.PrimaryHDU):
             # Add handling for this if we want to pass in a non-HDUList object
             image = obj
             fp = obj.filename()
             if inplace and fp:
                 path = fp
             else:
-                z = mktemp(suffix=".fits")
-                obj.writeto(z, output_verify="silentfix")
+                z = mkstemp(suffix=".fits")[1]
+                with open(z, 'w') as f:
+                    obj.writeto(f, output_verify="silentfix")
                 path = z
             if fp:
                 name = os.path.split(fp)[1]
             else:
                 name = os.path.split(path)[1]
-
         else:
             # Aggressive type-checking for unhandled inputs
             excp = ("Unparseable object type %s.  Obj must be a filepath or"
@@ -151,21 +178,23 @@ class FitsIOMixin(object):
 
         return name, path, image
 
-    def _parse_telescope_config(self, obj):
+    def _parse_telescope_config(self, obj, p=None):
         if isinstance(obj, basestring):
             # Assume someone has set up a dictionary in conf.py
             try:
                 config = dict(TELESCOPES[obj])
+
             except AttributeError as e:
                 excp = "'%s' is not configured in TELESCOPES configuration."
                 raise ConfigurationError(excp %(obj))
         elif isinstance(obj, dict):
             config = dict(obj)
+
         else:
             excp = "Telescope Configuration must be one of %s or dictionary."
             preset = list(TELESCOPES.keys())
             raise TypeError(excp %(', '.join(['"%s"' %(x) for x in preset])))
-
+        if p : config = config[p]
         self.validate_telescope_config(config)
         return config
 
@@ -180,3 +209,43 @@ class FitsIOMixin(object):
                 excp = "Improperly configured telescope.  Missing %s."
                 raise ConfigurationError(excp %(k))
             else: pass
+
+    def save_img(self, img, path_to_output):
+        if hasattr(img, "writeto"):
+            dirname = os.path.dirname(output_file)
+            if not os.path.exists(dirname): mkdir(dirname)
+            img.writeto(path_to_output)
+
+class FileLoggerMixin(object):
+    """Create class-instance specific log for processes which should generate
+    their own filelog.
+    """
+
+    @property
+    def logger(self):
+        return getattr(self, '_logger', self._configure_log())
+
+    def _configure_log(self):
+        logger = logging.getLogger(
+            getattr(self, "LOGGER_NAME", "standalone_log")
+            )
+        logger.handlers = []
+        logger.setLevel(
+            getattr(self, "LOGGER_LEVEL", logging.DEBUG)
+            )
+        fh = logging.FileHandler(
+            getattr(self, "LOGGER_FILE", mkstemp(suffix=".log", prefix=logger.name)[1]
+            ))
+        fh.setFormatter(
+            logging.Formatter(
+                getattr(self, "LOGGER_FORMAT", "(%(levelname)s) - %(asctime)s ::: %(message)s")
+            ))
+        logger.addHandler(fh)
+        if getattr(self, "LOGGER_CONSOLE", False):
+            sh = logging.StreamHandler()
+            sh.setFormatter(logging.Formatter(
+                getattr(self, "LOGGER_FORMAT", "(%(levelname)s) - %(asctime)s ::: %(message)s")
+                ))
+            logger.addHandler(sh)
+        self._logger = logger
+        return logger

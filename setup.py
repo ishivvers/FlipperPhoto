@@ -1,4 +1,4 @@
-# -*- coding : utf-8 -*-
+# -*- coding:utf-8 -*-
 
 from setuptools import setup, find_packages
 from codecs import open
@@ -32,15 +32,18 @@ setup(
     keywords='astronomy photometry',
 
     packages=find_packages(exclude=['contrib', 'docs', 'tests']),
+
     install_requires=['future',
-        'numpy',
-        'astropy',
-        'pandas',
-        'astroquery'],
+        'numpy>=1.1.0',
+        'astropy>=1.2.0',
+        'pandas>=0.15.0',
+        'sqlalchemy>=1.0.10',
+        'fabric>=1.12.0'],
 
     extras_require={
-        'dev': ['check-manifest', 'fabric'],
+        'dev': ['check-manifest'],
         'test': ['coverage', 'nose'],
+        'psql' : ['psycopg2'],
     },
 
     package_data={
@@ -49,7 +52,7 @@ setup(
 
     entry_points={
         'console_scripts': [
-            'flippsolve=flipp.libs.astrometry:flippsolve',
+            'flipprun=flipp.pipeline:console_run',
         ],
     },
 )
