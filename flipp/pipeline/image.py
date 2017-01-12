@@ -8,6 +8,7 @@ import logging
 import numpy as np
 import matplotlib.pyplot as plt
 
+from astropy.io import fits
 from datetime import datetime, timedelta
 from glob import glob
 
@@ -134,6 +135,8 @@ class ImageParser(FitsIOMixin, FileLoggerMixin, object):
         with open(output_file, 'w') as f:
             img.writeto(f)
             self.output_file = output_file
+            img = fits.open(output_file)
+            os.remove(self.astrometry.get_output_path())
         return img
 
     def extract_stars(self, img, *args, **kwargs):

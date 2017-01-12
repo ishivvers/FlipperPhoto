@@ -77,7 +77,7 @@ class Astrometry(shMixin, FitsIOMixin):
             ('b' , ASTROMETRYCONF), # --backend-config
             ('t' , 2), # --tweak-order
             ('O' , None), # --overwrite
-            ('p' , None), # --no-plots
+            ('-no-plots' , None), # --no-plots
             ('2' , None), # --no-fits2fits
             ("3" , self.image[0].header["RA"].strip()), # --ra
             ("4" , self.image[0].header["DEC"].strip()), # --dec
@@ -85,8 +85,8 @@ class Astrometry(shMixin, FitsIOMixin):
             ("L" , self.telescope['L']), # --scale-low
             ("H" , self.telescope['H']), # --scale-high
             ("D" , os.path.dirname(os.path.abspath(self.path))), # --dir
-            ("N" , mktemp(suffix=".fits",
-                    prefix = "SOLVED-%s" %(self.name))), # --new-fits
+            ("N" , mktemp(prefix="SOLVED-",
+                    suffix = "%s" %(self.name))), # --new-fits
             ("-sextractor-path" , "/usr/bin/sextractor"),
             )
         return OrderedDict(default_values)
@@ -106,6 +106,10 @@ class Astrometry(shMixin, FitsIOMixin):
         outpath = self.get_output_path(options)
         self.last_cmd = self.configure(*args, **options)
         output = self.sh(*args, **options)
+        # Delete all temporary files
+        tempfiles=glob.glob('{}*'.format(os.path.splitext(self.path)[0]))
+        for f in tempfiles:
+            os.remove(f)
         if os.path.exists(outpath):
             self.success = True
             return fits.open(outpath)
