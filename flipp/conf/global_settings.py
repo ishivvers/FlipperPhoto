@@ -7,7 +7,9 @@ PROJECT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 FIXTURE_DIR = os.path.join(PROJECT_DIR, "fixtures")
 
 SEXCONFPATH = os.path.join(PROJECT_DIR, "libs", "sextractor_config")
-ASTROMETRYCONF = "/usr/local/astrometry/etc/astrometry.cfg"
+SEXTRACTORPATH = "/usr/bin/sextractor"
+ASTROMETRYCONF = os.path.join(PROJECT_DIR, "libs", "astrometry.cfg")
+SOLVEFIELDPATH = "/usr/bin/solve-field"
 #ASTROMETRYCONFPATH = os.path.Desktopjoin(PROJECT_DIR, "flipp", "libs", "astrometry")
 
 OUTPUT_ROOT = os.path.abspath(os.path.join(os.path.expanduser('~'), "FLIPPOUT"))
