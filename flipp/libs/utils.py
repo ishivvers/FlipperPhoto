@@ -226,6 +226,7 @@ class FileLoggerMixin(object):
         return getattr(self, '_logger', self._configure_log())
 
     def _configure_log(self):
+
         logger = logging.getLogger(
             getattr(self, "LOGGER_NAME", "standalone_log")
             )
@@ -234,8 +235,8 @@ class FileLoggerMixin(object):
             getattr(self, "LOGGER_LEVEL", logging.DEBUG)
             )
         fh = logging.FileHandler(
-            getattr(self, "LOGGER_FILE", mkstemp(suffix=".log", prefix=logger.name)[1]
-            ))
+            getattr(self, "LOGGER_FILE", None) or mkstemp(suffix=".log", prefix=logger.name)[1]
+            )
         fh.setFormatter(
             logging.Formatter(
                 getattr(self, "LOGGER_FORMAT", "(%(levelname)s) - %(asctime)s ::: %(message)s")
