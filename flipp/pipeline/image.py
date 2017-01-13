@@ -186,3 +186,6 @@ class ImageParser(FitsIOMixin, FileLoggerMixin, object):
         except Exception as e:
             # Handle specific errors
             self.logger.exception(e)
+        finally:
+            if os.path.exists(self.file):
+                os.remove(self.file)
