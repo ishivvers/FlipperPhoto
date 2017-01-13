@@ -130,7 +130,7 @@ class FitsIOMixin(object):
 
     required_config_keys = tuple()
 
-    def _parse_input(self, obj, inplace=False):
+    def _parse_input(self, obj):
         """Sets instance attributes based on input type.
 
         If obj is string-like, assume it is a filepath, and open it as an
@@ -148,10 +148,8 @@ class FitsIOMixin(object):
                 # self.image = ZCat.open(obj)
                 image = get_zipped_fitsfile(obj)
             name = os.path.split(obj)[1]
-
             path = mkstemp(prefix="COPY-{0}".format(os.path.splitext(name)[0]),
                 suffix=".fits")[1]
-
             with open(path, 'w') as f:
                 image.writeto(f, output_verify="silentfix")
 
@@ -159,13 +157,10 @@ class FitsIOMixin(object):
             # Add handling for this if we want to pass in a non-HDUList object
             image = obj
             fp = obj.filename()
-            if inplace and fp:
-                path = fp
-            else:
-                z = mkstemp(suffix=".fits")[1]
-                with open(z, 'w') as f:
-                    obj.writeto(f, output_verify="silentfix")
-                path = z
+            z = mkstemp(suffix=".fits")[1]
+            with open(z, 'w') as f:
+                obj.writeto(f, output_verify="silentfix")
+            path = z
             if fp:
                 name = os.path.split(fp)[1]
             else:
@@ -226,6 +221,7 @@ class FileLoggerMixin(object):
         return getattr(self, '_logger', self._configure_log())
 
     def _configure_log(self):
+
         logger = logging.getLogger(
             getattr(self, "LOGGER_NAME", "standalone_log")
             )
@@ -234,8 +230,8 @@ class FileLoggerMixin(object):
             getattr(self, "LOGGER_LEVEL", logging.DEBUG)
             )
         fh = logging.FileHandler(
-            getattr(self, "LOGGER_FILE", mkstemp(suffix=".log", prefix=logger.name)[1]
-            ))
+            getattr(self, "LOGGER_FILE", None) or mkstemp(suffix=".log", prefix=logger.name)[1]
+            )
         fh.setFormatter(
             logging.Formatter(
                 getattr(self, "LOGGER_FORMAT", "(%(levelname)s) - %(asctime)s ::: %(message)s")

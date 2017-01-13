@@ -13,8 +13,10 @@ from astropy.table import Table
 from flipp.libs.fileio import plot_one_image
 from flipp.libs.utils import shMixin, FitsIOMixin
 from flipp.conf import settings
-SEXCONFPATH = settings.SEXCONFPATH
 
+
+SEXCONFPATH = settings.SEXCONFPATH
+SEXTRACTORPATH = settings.SEXTRACTORPATH
 # ================
 # DEVELOPMENT NOTE
 # ================
@@ -29,6 +31,7 @@ default_param = os.path.join(SEXCONFPATH, "default.param")
 default_filter = os.path.join(SEXCONFPATH, "gauss_3.0_5x5.conv")
 default_nnw = os.path.join(SEXCONFPATH, "default.nnw")
 
+
 class sextractorConfig(object):
 
     option_re = re.compile("[A-Za-z_]+(?=\s)")
@@ -37,7 +40,8 @@ class sextractorConfig(object):
 
     def _sexconf2dict(self, path=default_sex):
         with open(path) as f:
-            d = dict(filter(None, map(self._parse_sextractor_option, f.readlines())))
+            d = dict(
+                filter(None, map(self._parse_sextractor_option, f.readlines())))
         return d
 
     def _parse_sextractor_option(self, s):
@@ -46,31 +50,27 @@ class sextractorConfig(object):
         if match:
             parts = re.split('\s+', s, 1)
             return match.group(), \
-                '"%s"' %(self.value_re.match(parts[1]).group())
+                '"%s"' % (self.value_re.match(parts[1]).group())
         return tuple()
+
 
 class Sextractor(sextractorConfig, shMixin, FitsIOMixin):
     """Sextractor wrapper with config built in."""
 
-    cmd = "sextractor"
+    cmd = SEXTRACTORPATH
 
     def set_defaults(self):
         """Sets default settings for running sextractor."""
 
-        D = {"CATALOG_NAME" : mkstemp(suffix=".txt", prefix="CATALOG_")[1], # Catalog
-            "CHECKIMAGE_TYPE" : "OBJECTS,BACKGROUND", # Objects
-            "CHECKIMAGE_NAME" : "%s,%s" %(mkstemp(suffix=".fits", prefix="CHECK-OBJECTS_")[1], mkstemp(suffix=".fits", prefix="CHECK-BKGRND_")[1]),
-            "FILTER_NAME" : default_filter,
-            "PARAMETERS_NAME" : default_param,
-            "STARNNW_NAME" : default_nnw,
-            "c" : default_sex,
-            }
+        D = {"CATALOG_NAME": mkstemp(suffix=".txt", prefix="CATALOG_")[1],  # Catalog
+             "CHECKIMAGE_TYPE": "OBJECTS,BACKGROUND",  # Objects
+             "CHECKIMAGE_NAME": "%s,%s" % (mkstemp(suffix=".fits", prefix="CHECK-OBJECTS_")[1], mkstemp(suffix=".fits", prefix="CHECK-BKGRND_")[1]),
+             "FILTER_NAME": default_filter,
+             "PARAMETERS_NAME": default_param,
+             "STARNNW_NAME": default_nnw,
+             "c": default_sex,
+             }
         return D
-
-
-    def get_output_filepaths(self, dict_config):
-        return {"catalog" : dict_config.get('CATALOG_NAME', None),
-            "check_imgs" : dict_config.get('CHECKIMAGE_NAME').split(',')}
 
 
     def extract(self, filepath_or_buffer, flag_filter=True, *args, **kwargs):
@@ -102,7 +102,8 @@ class Sextractor(sextractorConfig, shMixin, FitsIOMixin):
                 self.chk_bkgrnd = c
         # ===========================================================
 
-        catalog = Table.read(options.get("CATALOG_NAME"), format="ascii.sextractor")
+        catalog = Table.read(options.get("CATALOG_NAME"),
+                             format="ascii.sextractor")
 
         # Cleanup tmp files
         """
@@ -112,34 +113,23 @@ class Sextractor(sextractorConfig, shMixin, FitsIOMixin):
         os.remove(options.get("CATALOG_NAME"))
         os.remove(self.chk_objects)
         os.remove(self.chk_bkgrnd)
-
+        os.remove(self.path)
         if flag_filter:
-            catalog = catalog[ catalog['FLAGS'] == 0 ]
+            catalog = catalog[catalog['FLAGS'] == 0]
         return catalog
-
-    @property
-    def path(self):
-        return self._path
-
-    @path.setter
-    def path(self, fp):
-        if hasattr(self, '_path'):
-            if os.path.exists(self._path):
-                os.remove(self._path)
-        self._path = fp
 
     def extract_stars(self, filepath_or_buffer, *args, **kwargs):
         """Extract sources on an image, attempt to classify
         each source as star/not-star, and return only those
         sources labeled a star.
         """
-        thresh = kwargs.pop('thresh',0.5) # the threshold applied to
-                                          #  source extactor's CLASS_STAR
+        thresh = kwargs.pop('thresh', 0.5)  # the threshold applied to
+        #  source extactor's CLASS_STAR
         sources = self.extract(filepath_or_buffer, *args, **kwargs)
         pix_scale = 0.8  # this telescope-dependant number should be
-                         #  stored along with other parameters of the
-                         #  telesope, probably in global config file.
-        seeing = np.median( pix_scale * sources['FWHM_IMAGE'] )
-        kwargs.update({"SEEING_FWHM" : seeing })
+        #  stored along with other parameters of the
+        #  telesope, probably in global config file.
+        seeing = np.median(pix_scale * sources['FWHM_IMAGE'])
+        kwargs.update({"SEEING_FWHM": seeing})
         sources = self.extract(filepath_or_buffer, *args, **kwargs)
-        return sources[ sources['CLASS_STAR'] >= thresh ]
+        return sources[sources['CLASS_STAR'] >= thresh]
