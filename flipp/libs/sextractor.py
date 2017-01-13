@@ -72,9 +72,6 @@ class Sextractor(sextractorConfig, shMixin, FitsIOMixin):
              }
         return D
 
-    def get_output_filepaths(self, dict_config):
-        return {"catalog": dict_config.get('CATALOG_NAME', None),
-                "check_imgs": dict_config.get('CHECKIMAGE_NAME').split(',')}
 
     def extract(self, filepath_or_buffer, flag_filter=True, *args, **kwargs):
         """Run source-extractor (sextractor) on the given image.
@@ -116,21 +113,10 @@ class Sextractor(sextractorConfig, shMixin, FitsIOMixin):
         os.remove(options.get("CATALOG_NAME"))
         os.remove(self.chk_objects)
         os.remove(self.chk_bkgrnd)
-
+        os.remove(self.path)
         if flag_filter:
             catalog = catalog[catalog['FLAGS'] == 0]
         return catalog
-
-    @property
-    def path(self):
-        return self._path
-
-    @path.setter
-    def path(self, fp):
-        if hasattr(self, '_path'):
-            if os.path.exists(self._path):
-                os.remove(self._path)
-        self._path = fp
 
     def extract_stars(self, filepath_or_buffer, *args, **kwargs):
         """Extract sources on an image, attempt to classify

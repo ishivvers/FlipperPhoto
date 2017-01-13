@@ -136,7 +136,7 @@ class ImageParser(FitsIOMixin, FileLoggerMixin, object):
             img.writeto(f)
             self.output_file = output_file
             img = fits.open(output_file)
-            os.remove(self.astrometry.get_output_path())
+            os.remove(self.astrometry.outpath)  # This always exists if solve has been run
         return img
 
     def extract_stars(self, img, *args, **kwargs):
@@ -178,6 +178,7 @@ class ImageParser(FitsIOMixin, FileLoggerMixin, object):
             sources = self.extract_stars( self.solve_field() )
             cataloged_sources = self.zeropoint(sources)
             self.sources = cataloged_sources
+            os.remove(self.file)
             return cataloged_sources
         except ImageFailedError as e:
             self.logger.error("%(img)s encountered an error %(e)s",

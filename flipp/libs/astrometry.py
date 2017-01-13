@@ -88,7 +88,9 @@ class Astrometry(shMixin, FitsIOMixin):
                           )
         return OrderedDict(default_values)
 
-    def get_output_path(self, config_dict):
+    def get_output_path(self, config_dict=None):
+        if not config_dict:
+            config_dict = dict(self.defaults)
         return config_dict['N'] or config_dict['--new-fits'] or None
 
     def solve(self, *args, **kwargs):
@@ -101,6 +103,7 @@ class Astrometry(shMixin, FitsIOMixin):
         args = self.update_args([self.path], args)
         options = self.update_kwargs(self.defaults, kwargs)
         outpath = self.get_output_path(options)
+        self.outpath = outpath
         self.last_cmd = self.configure(*args, **options)
         output = self.sh(*args, **options)
         # Delete all temporary files
