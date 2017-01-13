@@ -65,7 +65,9 @@ def Zeropoint_apass( sources, passband='clear' ):
     image_cat = sources[ image_matches ]
     apass_cat = apass_sources[ catalog_matches ]
     if passband == 'clear':
-        # transform the catalog values to R passband, which is roughly correct
+        # transform the catalog values to R passband, and assume clear ~ R.
+        #  this is pretty close, but not at all exact - see discussion in Li+2003 (2003PASP..115..844L),
+        #  and also note that the camera has been changed since then.
         apass_cat_passband,transf_err = gr2R( np.array(apass_cat['Sloan_g']),
                                               np.array(apass_cat['Sloan_r']) )
     elif passband == 'B':
