@@ -39,12 +39,6 @@ SEXCONFPATH = settings.SEXCONFPATH
 ASTROMETRYCONF = settings.ASTROMETRYCONF
 TELESCOPES = settings.TELESCOPES
 
-DEFAULT_CONF = "/usr/local/astrometry/etc/astrometry.cfg"
-"""A version of this with reasonable defaults ought to be
-put under version control in this repository.  Let this be
-temporary for now."""
-
-
 class Astrometry(shMixin, FitsIOMixin):
 
     cmd = "solve-field" # For shMixin
