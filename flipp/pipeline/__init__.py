@@ -23,14 +23,18 @@ def run(input_files, path_to_output=None, telescope=None, extensions=[]):
     """
     R = '|'.join(map(re.escape, extensions)) + '$'
     for input_file in input_files:
-        if not re.search(R, input_file, flags=re.I):
-            continue
-        img = ImageParser(input_file, path_to_output, telescope)
-        sources = img.run()
-        if not sources:
-            continue
-        matcher = SourceMatcher(img)
-        n_created, n_updated = matcher.run()
+        try:
+            if not re.search(R, input_file, flags=re.I):
+                continue
+            img = ImageParser(input_file, path_to_output, telescope)
+            sources = img.run()
+            if not sources:
+                continue
+            matcher = SourceMatcher(img)
+            n_created, n_updated = matcher.run()
+        except Exception as e:
+            msg = "{} Failed with error: {}".format(input_file, e)
+            print(msg)
 
 def console_run():
     """Console script entry-point for flipp pipeline."""
