@@ -33,14 +33,14 @@ and KAIT telescopes at Lick Observatory.
    1. Other likely changes:
      1. ``SEXTRACTORPATH:`` the path to the ``sextractor`` executable.
      1. ``SOLVEFIELDPATH:`` the path to the ``solve-field`` executable.
-     1. ``ASTROMETRYCONF:`` the path to the ``solve-field/astrometry.net`` configuration file, which usually contains system-specific info.
+     1. ``ASTROMETRYCONF:`` the path to the ``solve-field`` configuration file, which usually contains system-specific info.
  1. Within the root folder of FlipperPhot, run ``pip install -e .`` to install.
    1. Now you should have the command ``flipprun`` in your path.
    1. Type ``flipprun -h`` for information on how to run it.
 
 ### To Do:
 
-- Devise a better method for "validating" imges before we attempt to calculate the astrometry; ideally we could determine whether an image is good or not before then.
+- Devise a better method for "validating" images before we attempt to calculate the astrometry; ideally we could determine whether an image is good or not before then.
   - extreme examples of "bad" images: ``Data/kait/2013/Jun25/Jun3pind.fts.Z``, ``Data/kait/2015/Sep30/Sep5uihp.fts.Z``
   - examples of "good" images: ``Data/kait/2015/May20/May5khhh.fts.Z``, ``Data/nickel/nickel150609/data/tfn150609.d206.sn2014c.V.fit``
 - Finish integrating result with the SNDB.
