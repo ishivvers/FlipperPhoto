@@ -143,7 +143,11 @@ class ImageParser(FitsIOMixin, FileLoggerMixin, object):
         return img
 
     def extract_stars(self, img, *args, **kwargs):
-        return SE.extract_stars(img, *args, **kwargs)
+        ## because the SE star/galaxy classifications are not trustworthy,
+        ##  extract everything for now
+        #return SE.extract_stars(img, *args, **kwargs)
+        return SE.extract(img, *args, **kwargs)
+
 
     def zeropoint(self, sources):
         threshold = 3
@@ -179,10 +183,9 @@ class ImageParser(FitsIOMixin, FileLoggerMixin, object):
         try:
             self.validate()
             sources = self.extract_stars( self.solve_field() )
-            cataloged_sources = self.zeropoint(sources)
-            self.sources = cataloged_sources
+            self.sources = self.zeropoint(sources)
             os.remove(self.file)
-            return cataloged_sources
+            return self.sources
         except ImageFailedError as e:
             self.logger.error("%(img)s encountered an error %(e)s",
                 {"img" : self.file, "e" : unicode(e)})
