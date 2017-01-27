@@ -124,9 +124,11 @@ class ImageParser(FitsIOMixin, FileLoggerMixin, object):
 
         self.logger.info("Successfully performed astrometry on %(img)s",
             {"img" : self.file})
-        name = "{object}_{date}_{telescope}_{filter}_c.fit".format(
+        name = "{object}_{date}_{time}_{datid}_{telescope}_{filter}_c.fit".format(
             object = self.META['OBJECT'],
-            date = self.META['FRACTIONAL_DATE'],
+            date = self.META['DATE'],
+            time = self.META['TIME'].replace(':',''),
+            datid = self.META['DATID'],
             telescope = self.telescope,
             filter = self.META['FILTER']
             )
