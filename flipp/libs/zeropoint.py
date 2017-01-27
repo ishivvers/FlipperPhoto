@@ -79,7 +79,7 @@ def Zeropoint_apass( sources, passband='clear' ):
     elif passband == 'R':
         apass_cat_passband,transf_err = gr2R( np.array(apass_cat['Sloan_g']),
                                               np.array(apass_cat['Sloan_r']) )
-    elif passpand == 'I':
+    elif passband == 'I':
         apass_cat_passband,transf_err = ri2I( np.array(apass_cat['Sloan_r']),
                                               np.array(apass_cat['Sloan_i']) )
     else:
