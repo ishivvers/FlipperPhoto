@@ -5,8 +5,9 @@ from __future__ import unicode_literals
 import os
 
 from flipp.database import engine, models
-from flipp.libs import coord
 
+from astropy.coordinates import SkyCoord
+from astropy import units
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import func, text
 
@@ -33,7 +34,10 @@ class SourceMatcher(object):
         created = False
         if not objects.count() == 0:
             o = objects.first()
-            if coord.ang_sep(ra, dec, o.ra, o.dec) / 2.7784E-4 <= tolerance:
+            c_source = SkyCoord(ra=[ra*units.degree],dec=[dec*units.degree])
+            c_object = SkyCoord(ra=[o.ra*units.degree],dec=[o.dec*units.degree])
+            idx, sep2d, dist3d = c_source.match_to_catalog_sky( c_object )
+            if sep2d[0] <= tolerance*units.arcsecond:
                 obj = o
         if not obj:
             obj = self.create_source(source)
