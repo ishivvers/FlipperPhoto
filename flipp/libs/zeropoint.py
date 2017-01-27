@@ -1,6 +1,7 @@
 import numpy as np
+from astropy.coordinates import SkyCoord
+from astropy import units
 
-from flipp.libs.coord import ang_sep, indmatch
 from flipp.libs.apass import Client as APASS
 
 def gr2R( g,r ):
@@ -48,22 +49,26 @@ def Zeropoint_apass( sources, passband='clear' ):
         sources = s.extract(e)
         sources,zp,N = Zeropoint_apass(sources)
     """
-
+    
+    image_catalog_full = SkyCoord(ra=sources['ALPHA_J2000'], dec=sources['DELTA_J2000'])
     # find the middle of the field found in the image
-    ra_c = np.mean( sources['ALPHA_J2000'] )
-    dec_c = np.mean( sources['DELTA_J2000'] )
-    # find the radius needed to capture the whole field, taking spherical
-    #  geometry into account
-    radius = np.max( ang_sep(sources['ALPHA_J2000'],sources['DELTA_J2000'], ra_c,dec_c) )
-    radius += 0.05 # add some slack, just to be safe
-    apass_sources = APASS.query(ra_c, dec_c, radius)
+    ra_c = np.mean( sources['ALPHA_J2000'] )*units.degree
+    dec_c = np.mean( sources['DELTA_J2000'] )*units.degree
+    # find the radius needed to capture the whole field
+    idx, sep2d, dist3d = image_catalog_full.match_to_catalog_sky( SkyCoord(ra=[ra_c], dec=[dec_c]) )
+    radius = np.max( sep2d )
+    radius += 1*units.arcmin # add some slack, just to be safe
+    apass_sources = APASS.query(ra_c.value, dec_c.value, radius.value)
 
     # cross match the two catalogs
-    image_matches, catalog_matches = indmatch( sources['ALPHA_J2000'],sources['DELTA_J2000'],
-                                    apass_sources['radeg'],apass_sources['decdeg'], 1.0) # using a tolerance of 1.0" for now
+    apass_catalog_full = SkyCoord(ra=apass_sources['radeg']*units.degree, dec=apass_sources['decdeg']*units.degree)
+    id_image, sep2d, dist3d = apass_catalog_full.match_to_catalog_sky( image_catalog_full )
+    threshold = 1.0 * units.arcsecond 
+    id_image[ sep2d>threshold ] = -1
+    # trim down to only the matches and re-order the image catalog to align with the apass catalog
+    apass_cat = apass_sources[ sep2d<=threshold ]
+    image_cat = sources[ id_image[ id_image>=0 ] ]
 
-    image_cat = sources[ image_matches ]
-    apass_cat = apass_sources[ catalog_matches ]
     if passband == 'clear':
         # transform the catalog values to R passband, and assume clear ~ R.
         #  this is pretty close, but not at all exact - see discussion in Li+2003 (2003PASP..115..844L),
@@ -87,7 +92,7 @@ def Zeropoint_apass( sources, passband='clear' ):
 
     # take the median as the zeropoint
     zp = np.median(apass_cat_passband - image_cat['MAG_AUTO'])
-    N = len(image_matches)
+    N = len(image_cat)
 
     # apply that zeropoint to all sources and return the fixed up catalog.
     # NOTE: right now, I assume our errors dominate over any errors from the

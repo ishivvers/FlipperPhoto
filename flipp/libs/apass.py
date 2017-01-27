@@ -64,7 +64,7 @@ class Client(object):
             Declination in sexagesmial (HH:MM:SS, DD:MM:SS) or
             decimal degrees (##.#)
         radius : float
-            Radius to search around
+            Radius to search around in decimal degrees (#.#)
         outtype : int, optional (Default : 1)
             This determines the datatype of the actual request to AAVSO
             Currently, only handling for csv is available, so changing this

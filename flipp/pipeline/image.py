@@ -92,6 +92,7 @@ class ImageParser(FitsIOMixin, FileLoggerMixin, object):
 
             dt = "{0} {1}".format(H['DATE'], H['TIME'].split('.')[0])
             H['DATETIME'] = datetime.strptime(dt, "%d/%m/%Y %H:%M:%S")
+            H['CLEAN_DATE'] = '{:%Y%m%d}'.format(H['DATETIME'])
             H['FRACTIONAL_DATE'] = '{:%Y%m%d}{}'.format(H['DATETIME'],
                 '{:.4f}'.format(timedelta(
                     hours = H['DATETIME'].hour,
@@ -126,7 +127,7 @@ class ImageParser(FitsIOMixin, FileLoggerMixin, object):
             {"img" : self.file})
         name = "{object}_{date}_{time}_{datid}_{telescope}_{filter}_c.fit".format(
             object = self.META['OBJECT'],
-            date = self.META['DATE'],
+            date = self.META['CLEAN_DATE'],
             time = self.META['TIME'].replace(':',''),
             datid = self.META['DATID'],
             telescope = self.telescope,
