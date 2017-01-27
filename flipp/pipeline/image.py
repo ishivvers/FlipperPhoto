@@ -152,12 +152,12 @@ class ImageParser(FitsIOMixin, FileLoggerMixin, object):
     def zeropoint(self, sources):
         threshold = 3
         f = self.META['FILTER']
-        cataloged_sources, zp , N = Zeropoint_apass(sources, f)
+        zp_sources, zp , N = Zeropoint_apass(sources, f)
         if (N == 0) or np.isnan(zp):
             raise ImageFailedError('No stars crossmatched to catalog')
         elif (N < threshold):
             raise ImageFailedError('Not enough stars crossmatched to catalog (%d stars found)'%N)
-        return cataloged_sources
+        return zp_sources
 
     def diagnostic_plots(self, *args, **kwargs):
         """Create a few quick plots of the sources identified,

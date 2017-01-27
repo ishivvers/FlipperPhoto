@@ -24,7 +24,7 @@ def ri2I( r,i ):
     """
     I = r - 1.2444*(r - i) - 0.3820
     sigma = 0.0078
-    return R, sigma
+    return I, sigma
 
 def Zeropoint_apass( sources, passband='clear' ):
     """Given a source extractor catalog calculated from a single image,
@@ -49,7 +49,6 @@ def Zeropoint_apass( sources, passband='clear' ):
         sources = s.extract(e)
         sources,zp,N = Zeropoint_apass(sources)
     """
-    
     image_catalog_full = SkyCoord(ra=sources['ALPHA_J2000'], dec=sources['DELTA_J2000'])
     # find the middle of the field found in the image
     ra_c = np.mean( sources['ALPHA_J2000'] )*units.degree
@@ -63,10 +62,10 @@ def Zeropoint_apass( sources, passband='clear' ):
     # cross match the two catalogs
     apass_catalog_full = SkyCoord(ra=apass_sources['radeg']*units.degree, dec=apass_sources['decdeg']*units.degree)
     id_image, sep2d, dist3d = apass_catalog_full.match_to_catalog_sky( image_catalog_full )
-    threshold = 1.0 * units.arcsecond 
-    id_image[ sep2d>threshold ] = -1
+    tolerance = 2.0 * units.arcsecond 
+    id_image[ sep2d>tolerance ] = -1
     # trim down to only the matches and re-order the image catalog to align with the apass catalog
-    apass_cat = apass_sources[ sep2d<=threshold ]
+    apass_cat = apass_sources[ sep2d<=tolerance ]
     image_cat = sources[ id_image[ id_image>=0 ] ]
 
     if passband == 'clear':
@@ -90,9 +89,12 @@ def Zeropoint_apass( sources, passband='clear' ):
     else:
         raise Exception('Passband not implemented.')
 
-    # take the median as the zeropoint
-    zp = np.median(apass_cat_passband - image_cat['MAG_AUTO'])
-    N = len(image_cat)
+    # take the median as the zeropoint, careful to get rid of any
+    #  nan values (which crop up if a passband is missing in APASS)
+    zeropoints = apass_cat_passband - image_cat['MAG_AUTO']
+    zeropoints = zeropoints[np.isfinite(zeropoints)]
+    zp = np.median( zeropoints )
+    N = len( zeropoints )
 
     # apply that zeropoint to all sources and return the fixed up catalog.
     # NOTE: right now, I assume our errors dominate over any errors from the
