@@ -2,6 +2,7 @@
 
 from __future__ import unicode_literals
 
+import gc
 import re
 import argparse
 
@@ -35,6 +36,7 @@ def run(input_files, path_to_output=None, telescope=None, extensions=[]):
         except Exception as e:
             msg = "{} Failed with error: {}".format(input_file, e)
             print(msg)
+        gc.collect()
 
 def console_run():
     """Console script entry-point for flipp pipeline."""
