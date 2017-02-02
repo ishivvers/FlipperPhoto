@@ -27,7 +27,7 @@ class SourceMatcher(object):
         ra = source['ALPHA_J2000']
         dec = source['DELTA_J2000']
         dist = func.sqrt(func.pow(models.Source.ra - ra, 2) +
-                         func.pow(models.Source.dec - dec, 2))
+                         func.pow(models.Source.decl - dec, 2))
         objects = self.session.query(
             models.Source).filter(dist < 3).order_by(dist)
         obj = None
@@ -48,7 +48,7 @@ class SourceMatcher(object):
         ra = source['ALPHA_J2000']
         dec = source['DELTA_J2000']
         s = models.Source(
-            ra=ra, dec=dec, name=name, classification=classification)
+            ra=ra, decl=dec, name=name, classification=classification)
         self.session.add(s)
         self.session.commit()
         return s
