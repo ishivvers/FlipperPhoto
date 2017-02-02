@@ -23,7 +23,7 @@ class Client(object):
 
     host = "https://www.aavso.org/"
     endpoint = "cgi-bin/apass_download.pl"
-    __cache = {}
+    # __cache = {}
     agent = "UC Berkeley Filippenko Group's Photometry Pipeline"
 
     @classmethod
@@ -38,12 +38,12 @@ class Client(object):
 
     @classmethod
     def _get(cls, ra, dec, radius, outtype=1):
-        cachekey = (ra, dec, radius)
-        if cachekey in cls.__cache:
-            return cls.__cache[cachekey]
+        # cachekey = (ra, dec, radius)
+        # if cachekey in cls.__cache:
+        #     return cls.__cache[cachekey]
         url = cls._build_url(ra=ra, dec=dec, radius=radius, outtype=outtype)
         r = requests.get(url, headers={'User-Agent' : cls.agent})
-        cls.__cache[cachekey] = r
+        # cls.__cache[cachekey] = r
         return r
 
     @classmethod
