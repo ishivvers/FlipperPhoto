@@ -23,7 +23,7 @@ class SourceMatcher(object):
         self.meta = imgparser.META
         self.session = Session()
 
-    def find_or_create_source(self, source, tolerance=0.5):
+    def find_or_create_source(self, source, tolerance=10.0):
         ra = source['ALPHA_J2000']
         dec = source['DELTA_J2000']
         dist = func.sqrt(func.pow(models.Source.ra - ra, 2) +

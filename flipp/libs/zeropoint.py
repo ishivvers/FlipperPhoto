@@ -62,7 +62,7 @@ def Zeropoint_apass( sources, passband='clear' ):
     # cross match the two catalogs
     apass_catalog_full = SkyCoord(ra=apass_sources['radeg']*units.degree, dec=apass_sources['decdeg']*units.degree)
     id_image, sep2d, dist3d = apass_catalog_full.match_to_catalog_sky( image_catalog_full )
-    tolerance = 2.0 * units.arcsecond 
+    tolerance = 10.0 * units.arcsecond 
     id_image[ sep2d>tolerance ] = -1
     # trim down to only the matches and re-order the image catalog to align with the apass catalog
     apass_cat = apass_sources[ sep2d<=tolerance ]
