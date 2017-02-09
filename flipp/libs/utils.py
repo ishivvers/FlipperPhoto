@@ -201,6 +201,9 @@ class FitsIOMixin(object):
         sometimes required for commentary cards that do not adhere
         to FITS standard.
         """
+        if image[0].header.get('COMMENT') == None:
+            # this file does not have comment cards
+            return image
         for i,c in enumerate(image[0].header['COMMENT'][:]):
             try:
                 c = c.encode('ascii')
