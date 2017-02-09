@@ -197,12 +197,15 @@ class FitsIOMixin(object):
         return config
 
     def _strip_commentary_cards(self, image):
-        """Strips commentary cards from fits header; sometimes required
-        for commentary cards that do not adhere to FITS standard.
+        """Strips non-ASCII commentary cards from fits header; 
+        sometimes required for commentary cards that do not adhere
+        to FITS standard.
         """
-        for k in image[0].header.keys():
-            if k and (type( image[0].header[k] ) == fits.header._HeaderCommentaryCards):
-                image[0].header.pop(k)
+        for i,c in enumerate(image[0].header['COMMENT'][:]):
+            try:
+                c = c.encode('ascii')
+            except UnicodeDecodeError:
+                image[0].header['COMMENT'][i] = 'Redacted for not being ASCII'
         return image
 
     def validate_telescope_config(self, d):
