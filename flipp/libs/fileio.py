@@ -38,7 +38,7 @@ def get_zipped_fitsfile(pathname):
         img = local("zcat {}".format(pathname), capture=True)
     hdu = pf.open(StringIO(img))
     # avoid some dumb bugs, not important
-    hdu.verify('fix')
+    hdu.verify('silentfix+ignore')
     return hdu
 
 def get_head(pathname):
@@ -156,5 +156,5 @@ def fix_kait_header(pathname,outpathname=None):
     base,ext = os.path.splitext( pathname.strip('.Z') )
     if outpathname == None:
         outpathname = base + '.fixed' + ext
-    hdu.writeto( outpathname, clobber=True, output_verify='fix' )
+    hdu.writeto( outpathname, clobber=True, output_verify='silentfix+ignore' )
     return outpathname

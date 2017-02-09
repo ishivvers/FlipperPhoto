@@ -147,11 +147,14 @@ class FitsIOMixin(object):
             except IOError:
                 # self.image = ZCat.open(obj)
                 image = get_zipped_fitsfile(obj)
+            # strip out header commentary cards, which often have
+            #  non-ascii characters
+            image = self._strip_commentary_cards(image) 
             name = os.path.split(obj)[1]
             path = mkstemp(prefix="COPY-{0}".format(os.path.splitext(name)[0]),
                 suffix=".fits")[1]
             with open(path, 'w') as f:
-                image.writeto(f, output_verify="silentfix")
+                image.writeto(f, output_verify="silentfix+ignore")
 
         elif isinstance(obj, fits.hdu.hdulist.HDUList):
             # Add handling for this if we want to pass in a non-HDUList object
@@ -159,7 +162,7 @@ class FitsIOMixin(object):
             fp = obj.filename()
             z = mkstemp(suffix=".fits")[1]
             with open(z, 'w') as f:
-                obj.writeto(f, output_verify="silentfix")
+                obj.writeto(f, output_verify="silentfix+ignore")
             path = z
             if fp:
                 name = os.path.split(fp)[1]
@@ -193,6 +196,15 @@ class FitsIOMixin(object):
         self.validate_telescope_config(config)
         return config
 
+    def _strip_commentary_cards(self, image):
+        """Strips commentary cards from fits header; sometimes required
+        for commentary cards that do not adhere to FITS standard.
+        """
+        for k in image[0].header.keys():
+            if k and (type( image[0].header[k] ) == fits.header._HeaderCommentaryCards):
+                image[0].header.pop(k)
+        return image
+
     def validate_telescope_config(self, d):
         """Checks for required keys.
 
@@ -204,7 +216,7 @@ class FitsIOMixin(object):
                 excp = "Improperly configured telescope.  Missing %s."
                 raise ConfigurationError(excp %(k))
             else: pass
-
+    
     def save_img(self, img, path_to_output):
         if hasattr(img, "writeto"):
             dirname = os.path.dirname(output_file)
