@@ -79,4 +79,7 @@ class Client(object):
         assert r.status_code == 200, "Invalid query"
         # replace all values labeled 'NA' with NaN, so numpy can handle it
         text = r.text.replace('NA','NaN')
-        return Table.read(StringIO(text), format="ascii.csv")
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            out = Table.read(StringIO(text), format="ascii.csv")
+        return out

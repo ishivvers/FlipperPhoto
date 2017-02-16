@@ -2,6 +2,7 @@
 """Python wrapper for Sextractor, with python-friendly config."""
 import os
 import re
+import warnings
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -102,8 +103,10 @@ class Sextractor(sextractorConfig, shMixin, FitsIOMixin):
                 self.chk_bkgrnd = c
         # ===========================================================
 
-        catalog = Table.read(options.get("CATALOG_NAME"),
-                             format="ascii.sextractor")
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            catalog = Table.read(options.get("CATALOG_NAME"),
+                                 format="ascii.sextractor")
 
         # Cleanup tmp files
         """
