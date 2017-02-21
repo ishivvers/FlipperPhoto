@@ -3,6 +3,7 @@
 from __future__ import unicode_literals
 
 import os
+import numpy as np
 
 from flipp.database import engine, models
 
@@ -26,10 +27,17 @@ class SourceMatcher(object):
     def find_or_create_source(self, source, tolerance=10.0):
         ra = source['ALPHA_J2000']
         dec = source['DELTA_J2000']
+        # calculate rough extreme RA/Decl pairs to use in query
+        t = (2*tolerance)/(3600.0) # in degrees
+        raMin = ra - t/np.cos(np.deg2rad(dec))
+        raMax = ra + t/np.cos(np.deg2rad(dec))
+        decMin = dec - t
+        decMax = dec + t
         dist = func.sqrt(func.pow(models.Source.ra - ra, 2) +
                          func.pow(models.Source.decl - dec, 2))
-        objects = self.session.query(
-            models.Source).filter(dist < 3).order_by(dist)
+        objects = self.session.query(models.Source).filter(
+                    models.Source.ra.between(raMin,raMax),
+                    models.Source.decl.between(decMin,decMax)).order_by(dist)
         obj = None
         created = False
         if not objects.count() == 0:
