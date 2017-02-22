@@ -2,6 +2,8 @@
 
 from __future__ import unicode_literals
 
+import re
+import dateutil
 import os
 import errno
 import logging
@@ -30,8 +32,10 @@ class ImageFailedError(Exception):
     """
     pass
 
+
 class ValidationError(Exception):
     pass
+
 
 class ImageParser(FitsIOMixin, FileLoggerMixin, object):
 
@@ -42,7 +46,7 @@ class ImageParser(FitsIOMixin, FileLoggerMixin, object):
         self.image = image
         # Preprocessing?  see META
         self.header = self.image[0].header
-        self.telescope = telescope
+        self.telescope = telescope or self.__get_telescope(telescope)
         self.astrometry = Astrometry(self.image, self.telescope)
         self.output_root = output_dir or settings.OUTPUT_ROOT
         self.output_dir = os.path.join(
@@ -59,6 +63,7 @@ class ImageParser(FitsIOMixin, FileLoggerMixin, object):
 
     def __unicode__(self):
         templ = "{object}_{date}_{telescope}_{filter}"
+        return templ
 
     def _set_log_conf(self):
         """TEMPORARY.  Eventually we want dynamic runtime config."""
@@ -69,6 +74,17 @@ class ImageParser(FitsIOMixin, FileLoggerMixin, object):
             "flipp_{}.log".format(self.output_dir.split('/')[-1])
             )
         self.logger
+
+    def __get_telescope(self, telescope_name):
+        for h in settings.INSTRUMENT_HEADERS:
+            telescope = dict(self.header).get(h, None)
+            if telescope:  # Try some regex magic
+                for t in settings.TELESCOPES:  #.keys()
+                    if bool(re.search(t,
+                            re.sub("[^A-Za-z]", "", telescope, flags=re.I),
+                            flags=re.I)):
+                        return t
+        raise ImageFailedError("No telescope provided or found.")
 
     @property
     def META(self):
@@ -84,14 +100,17 @@ class ImageParser(FitsIOMixin, FileLoggerMixin, object):
             #  in the filename of the input file like the regex "d\d{3}".
             #  For example, the string "d123" or "d237".
             # ==============================================================
-            HEADERMAPS = { 'FILTER' : 'FILTERS', 'DATE' : 'date-obs',
-                'TIME' : 'ut', 'OBJECT' : 'object', 'DATID' : 'datid' }
+            # HEADERMAPS = { 'FILTER' : 'FILTERS', 'DATE' : 'date-obs',
+            #     'TIME' : 'ut', 'OBJECT' : 'object', 'DATID' : 'datid' }
             # ==============================================================
-            H = {k : self.header[v].strip() \
+            HEADERMAPS = settings.TELESCOPES[self.telescope]["HEADER_MAPS"]
+            H = {k : str(self.header[v]).strip() \
                 for k, v in HEADERMAPS.iteritems() if self.header.get(v)}
-
             dt = "{0} {1}".format(H['DATE'], H['TIME'].split('.')[0])
-            H['DATETIME'] = datetime.strptime(dt, "%d/%m/%Y %H:%M:%S")
+            try:
+                H['DATETIME'] = datetime.strptime(dt, "%d/%m/%Y %H:%M:%S")
+            except ValueError:
+                H["DATETIME"] = dateutil.parser.parse("19/08/13 10:57:07", ignoretz=True)
             H['CLEAN_DATE'] = '{:%Y%m%d}'.format(H['DATETIME'])
             H['FRACTIONAL_DATE'] = '{:%Y%m%d}{}'.format(H['DATETIME'],
                 '{:.4f}'.format(timedelta(
@@ -103,6 +122,19 @@ class ImageParser(FitsIOMixin, FileLoggerMixin, object):
                         ['year', 'month', 'day', 'hour', 'minute', 'second'])) - 2400000.5
             H['INSTRUMENT'] = self.telescope
             H['OBJECT'] = H['OBJECT'].replace('_','-').replace(' ','-')
+
+            # Try to get original file number if it exists
+            if "DATID" not in H:
+                obsnum = re.search("d\d{3}", os.path.splitext(self.name)[0], flags=re.I)
+                if obsnum:
+                    H["DATID"] = obsnum.group()
+                else:
+                    H["DATID"] = self.name
+            else:
+                obsnum = re.search("\d{3}", H["DATID"], flags=re.I)
+                if obsnum:
+                    obsnum = obsnum.group()
+                    H["DATID"] = "d{}".format(obsnum)
             self._M = H
         return self._M
 
@@ -117,8 +149,6 @@ class ImageParser(FitsIOMixin, FileLoggerMixin, object):
 
     def solve_field(self):
         """Perform astrometry, write image and extract sources."""
-        # TODO : Find a way to limit runtime
-
         img = self.astrometry.solve()
         if not img:
             raise ImageFailedError("Unable to correct image coordinates .")
@@ -188,7 +218,7 @@ class ImageParser(FitsIOMixin, FileLoggerMixin, object):
             return self.sources
         except ImageFailedError as e:
             self.logger.error("%(img)s encountered an error %(e)s",
-                {"img" : self.file, "e" : unicode(e)})
+                {"img" : self.name, "e" : unicode(e)})
         except Exception as e:
             # Handle specific errors
             self.logger.exception(e)

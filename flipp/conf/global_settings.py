@@ -14,6 +14,11 @@ SOLVEFIELDPATH = "/usr/bin/solve-field"
 
 OUTPUT_ROOT = os.path.abspath(os.path.join(os.path.expanduser('~'), "FLIPPOUT"))
 
+INSTRUMENT_HEADERS = ["INSTRUME",
+                   "TELESCOP",
+                   "TELESCOPE",
+                  ]
+
 TELESCOPES = {
     "kait" : {
         "ASTROMETRY_OPTIONS" : {
@@ -21,9 +26,12 @@ TELESCOPES = {
             "H" : 0.80  # --scale-high
             },
         "HEADER_MAPS" : {
-            "filter" : 'filtnam',
-            "obsdate" : [],
-            }
+            "FILTER" : "FILTERS",
+            "DATE" : "date-obs",
+            "TIME": "ut",
+            "OBJECT" : "object",
+            "DATID" : "datid",
+            },
         },
     "nickel" : {
         "ASTROMETRY_OPTIONS" : {
@@ -31,9 +39,12 @@ TELESCOPES = {
             "H" : 0.38  # --scale-high
             },
         "HEADER_MAPS" : {
-            "filter" : 'filtnam',
-            "obsdate" : [],
-            }
+            "FILTER" : "FILTNAM",
+            "DATE" : "DATE-OBS",
+            "TIME": "UTMIDDLE",
+            "OBJECT" : "OBJECT",
+            # "DATID" : "OBSNUM"
+            },
         },
 }
 
