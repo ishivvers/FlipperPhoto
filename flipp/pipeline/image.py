@@ -154,7 +154,7 @@ class ImageParser(FitsIOMixin, FileLoggerMixin, object):
             raise ImageFailedError("Unable to correct image coordinates .")
 
         self.logger.info("Successfully performed astrometry on %(img)s",
-            {"img" : self.file})
+            {"img" : self.name})
         name = "{object}_{date}_{time}_{datid}_{telescope}_{filter}_c.fit".format(
             object = self.META['OBJECT'],
             date = self.META['CLEAN_DATE'],
@@ -170,6 +170,8 @@ class ImageParser(FitsIOMixin, FileLoggerMixin, object):
             self.output_file = output_file
             img = fits.open(output_file)
             os.remove(self.astrometry.outpath)  # This always exists if solve has been run
+        self.logger.info("Saved wcs-corrected image %(img)s to %(out)s",
+            {"img" : self.name, "out" : output_file})
         return img
 
     def extract_stars(self, img, *args, **kwargs):
