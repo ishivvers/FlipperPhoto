@@ -75,7 +75,7 @@ def console_run():
         choices = settings.TELESCOPES.keys(),
         help = 'Telescope name from allowed names, {}'.format(
             ', '.join(settings.TELESCOPES)),
-        default='kait'
+        default = None,
         )
     parser.add_argument("-r", "--recursive", action="store_true")
     parser.add_argument("-e", "--extensions", type=str, help="valid extensions", nargs = "*",
