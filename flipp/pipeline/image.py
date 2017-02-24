@@ -25,6 +25,7 @@ from flipp.conf import settings
 
 SE = Sextractor()
 
+
 class ImageFailedError(Exception):
     """Simple pipeline error; raised when nothing is wrong
     but an image is bad.
@@ -49,10 +50,10 @@ class ImageParser(FitsIOMixin, FileLoggerMixin, object):
         self.astrometry = Astrometry(self.image, self.telescope)
         self.output_root = output_dir or settings.OUTPUT_ROOT
         self.output_dir = os.path.join(
-                            self.output_root,
-                            '{:%Y%m%d}'.format(self.META['DATETIME'])
-                        )
-        self.output_file = None # Filled in at solve_field
+            self.output_root,
+            '{:%Y%m%d}'.format(self.META['DATETIME'])
+        )
+        self.output_file = None  # Filled in at solve_field
         mkdir(self.output_dir)
         self.sources = None
         self._set_log_conf()
@@ -65,20 +66,20 @@ class ImageParser(FitsIOMixin, FileLoggerMixin, object):
         return templ
 
     def _set_log_conf(self):
-        """TEMPORARY.  Eventually we want dynamic runtime config."""
+        """Declare logging variables for FileLoggerMixin."""
         self.LOGGER_NAME = self.name
         self.LOGGER_LEVEL = logging.INFO
         self.LOGGER_FILE = os.path.join(
             self.output_dir,
             "flipp_{}.log".format(self.output_dir.split('/')[-1])
-            )
+        )
 
     @property
     def META(self):
         if not hasattr(self, '_M'):
             HEADERMAPS = settings.TELESCOPES[self.telescope]["HEADER_MAPS"]
-            H = {k : str(self.header[v]).strip() \
-                for k, v in HEADERMAPS.iteritems() if self.header.get(v)}
+            H = {k: str(self.header[v]).strip()
+                 for k, v in HEADERMAPS.iteritems() if self.header.get(v)}
 
             # Try to get date and time
             dt = "{0} {1}".format(H['DATE'], H['TIME'].split('.')[0])
@@ -88,19 +89,23 @@ class ImageParser(FitsIOMixin, FileLoggerMixin, object):
                 H["DATETIME"] = dateutil.parser.parse(dt, ignoretz=True)
             H['CLEAN_DATE'] = '{:%Y%m%d}'.format(H['DATETIME'])
             H['FRACTIONAL_DATE'] = '{:%Y%m%d}{}'.format(H['DATETIME'],
-                '{:.4f}'.format(timedelta(
-                    hours = H['DATETIME'].hour,
-                    minutes = H['DATETIME'].minute,
-                    seconds = H['DATETIME'].second).total_seconds()/(60.*60.*24.)).lstrip('0'))
+                                                        '{:.4f}'.format(timedelta(
+                                                            hours=H[
+                                                                'DATETIME'].hour,
+                                                            minutes=H[
+                                                                'DATETIME'].minute,
+                                                            seconds=H['DATETIME'].second).total_seconds() / (60. * 60. * 24.)).lstrip('0'))
             H['MJD'] = julian_dates.julian_date(
-                    *map( lambda x : getattr(H['DATETIME'], x),
-                        ['year', 'month', 'day', 'hour', 'minute', 'second'])) - 2400000.5
+                *map(lambda x: getattr(H['DATETIME'], x),
+                     ['year', 'month', 'day', 'hour', 'minute', 'second']
+                     )) - 2400000.5
             H['INSTRUMENT'] = self.telescope
-            H['OBJECT'] = H['OBJECT'].replace('_','-').replace(' ','-')
+            H['OBJECT'] = H['OBJECT'].replace('_', '-').replace(' ', '-')
 
             # Try to get original file number if it exists
             if "DATID" not in H:
-                obsnum = re.search("d\d{3}", os.path.splitext(self.name)[0], flags=re.I)
+                obsnum = re.search("d\d{3}", os.path.splitext(
+                    self.name)[0], flags=re.I)
                 if obsnum:
                     H["DATID"] = obsnum.group()
                 else:
@@ -128,42 +133,44 @@ class ImageParser(FitsIOMixin, FileLoggerMixin, object):
         if not img:
             raise ImageFailedError("Unable to correct image coordinates .")
 
-        #self.logger.info("Successfully performed astrometry on %(img)s",
+        # self.logger.info("Successfully performed astrometry on %(img)s",
         #    {"img" : self.name})
         name = "{object}_{date}_{time}_{datid}_{telescope}_{filter}_c.fit".format(
-            object = self.META['OBJECT'],
-            date = self.META['CLEAN_DATE'],
-            time = self.META['TIME'].replace(':',''),
-            datid = self.META['DATID'],
-            telescope = self.telescope,
-            filter = self.META['FILTER']
-            )
+            object=self.META['OBJECT'],
+            date=self.META['CLEAN_DATE'],
+            time=self.META['TIME'].replace(':', ''),
+            datid=self.META['DATID'],
+            telescope=self.telescope,
+            filter=self.META['FILTER']
+        )
         output_file = os.path.join(self.output_dir, name)
 
         with open(output_file, 'w') as f:
             img.writeto(f)
             self.output_file = output_file
             img = fits.open(output_file)
-            os.remove(self.astrometry.outpath)  # This always exists if solve has been run
+            # This always exists if solve has been run
+            os.remove(self.astrometry.outpath)
         self.logger.info("Saved wcs-corrected image %(img)s to %(out)s",
-            {"img" : self.name, "out" : os.path.basename(output_file)})
+                         {"img": self.name,
+                          "out": os.path.basename(output_file)})
         return img
 
     def extract_stars(self, img, *args, **kwargs):
-        ## because the SE star/galaxy classifications are not trustworthy,
-        ##  extract everything for now
-        #return SE.extract_stars(img, *args, **kwargs)
+        # because the SE star/galaxy classifications are not trustworthy,
+        # extract everything for now
+        # return SE.extract_stars(img, *args, **kwargs)
         return SE.extract(img, *args, **kwargs)
-
 
     def zeropoint(self, sources):
         threshold = 3
         f = self.META['FILTER']
-        zp_sources, zp , N = Zeropoint_apass(sources, f)
+        zp_sources, zp, N = Zeropoint_apass(sources, f)
         if (N == 0) or np.isnan(zp):
             raise ImageFailedError('No stars crossmatched to catalog')
         elif (N < threshold):
-            raise ImageFailedError('Not enough stars crossmatched to catalog (%d stars found)'%N)
+            raise ImageFailedError(
+                'Not enough stars crossmatched to catalog (%d stars found)' % N)
         return zp_sources
 
     def diagnostic_plots(self, *args, **kwargs):
@@ -171,31 +178,31 @@ class ImageParser(FitsIOMixin, FileLoggerMixin, object):
         the background, et cetera, for given image.
         """
         img = self.solve_field()
-        stellar_sources = self.extract_stars( img, *args, **kwargs )
-        all_sources = SE.extract( img )
+        stellar_sources = self.extract_stars(img, *args, **kwargs)
+        all_sources = SE.extract(img)
 
-        fig0 = plot_one_image( self.image, title='Input Image' )
+        fig0 = plot_one_image(self.image, title='Input Image')
         # mark all sources identified
-        plt.scatter( all_sources['X_IMAGE_DBL'], all_sources['Y_IMAGE_DBL'],
-                     c='firebrick', marker='x', s=50 )
+        plt.scatter(all_sources['X_IMAGE_DBL'], all_sources['Y_IMAGE_DBL'],
+                    c='firebrick', marker='x', s=50)
 
-        fig1 = plot_one_image( SE.chk_bkgrnd, title='Background' )
-        fig2 = plot_one_image( SE.chk_objects, title='Objects', normalize='log' )
+        fig1 = plot_one_image(SE.chk_bkgrnd, title='Background')
+        fig2 = plot_one_image(SE.chk_objects, title='Objects', normalize='log')
         # mark all sources labeled as stars
-        plt.scatter( stellar_sources['X_IMAGE_DBL'], stellar_sources['Y_IMAGE_DBL'],
-                     c='firebrick', marker='x', s=50 )
+        plt.scatter(stellar_sources['X_IMAGE_DBL'], stellar_sources['Y_IMAGE_DBL'],
+                    c='firebrick', marker='x', s=50)
         plt.show()
 
     def run(self, *args, **kwargs):
         try:
             self.validate()
-            sources = self.extract_stars( self.solve_field() )
+            sources = self.extract_stars(self.solve_field())
             self.sources = self.zeropoint(sources)
             os.remove(self.file)
             return self.sources
         except ImageFailedError as e:
             self.logger.error("%(img)s encountered an error %(e)s",
-                {"img" : self.name, "e" : unicode(e)})
+                              {"img": self.name, "e": unicode(e)})
         except Exception as e:
             # Handle specific errors
             self.logger.exception(e)

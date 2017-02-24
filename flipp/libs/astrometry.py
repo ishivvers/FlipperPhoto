@@ -22,7 +22,6 @@ from __future__ import unicode_literals
 from builtins import str
 
 import os
-import re
 import argparse
 import glob
 
