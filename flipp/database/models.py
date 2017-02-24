@@ -29,8 +29,8 @@ class Source(FlippModel, Base):
 
     name = Column(String(length = 255, convert_unicode=True))
     classification = Column(String(length = 255, convert_unicode=True))
-    ra = Column(Float(precision=53))
-    decl = Column(Float(precision=53))
+    ra = Column(Float(precision=53), index=True)
+    decl = Column(Float(precision=53), index=True)
 
 
 class Image(FlippModel, Base):
