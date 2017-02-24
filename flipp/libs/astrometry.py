@@ -58,7 +58,7 @@ class Astrometry(shMixin, FitsIOMixin):
             'kait', 'nickel' or user specified config
         """
         name, path, image = self._parse_input(fp_or_buffer)
-        telescope = telescope or self.__get_telescope(image[0].header)
+        telescope = telescope or self.get_telescope(image[0].header)
         telescope_config = self._parse_telescope_config(
             telescope, 'ASTROMETRY_OPTIONS')
         self.name = name

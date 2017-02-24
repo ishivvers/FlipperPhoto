@@ -46,7 +46,7 @@ class ImageParser(FitsIOMixin, FileLoggerMixin, object):
         self.image = image
         # Preprocessing?  see META
         self.header = self.image[0].header
-        self.telescope = telescope or self.__get_telescope(self.header)
+        self.telescope = telescope or self.get_telescope(self.header)
         self.astrometry = Astrometry(self.image, self.telescope)
         self.output_root = output_dir or settings.OUTPUT_ROOT
         self.output_dir = os.path.join(

@@ -177,7 +177,7 @@ class FitsIOMixin(object):
 
         return name, path, image
 
-    def __get_telescope(self, header):
+    def get_telescope(self, header):
         for h in settings.INSTRUMENT_HEADERS:
             telescope = dict(header).get(h, None)  # Try to get telescope name
             if telescope:  # Try some regex magic
