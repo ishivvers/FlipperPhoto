@@ -48,7 +48,7 @@ class Astrometry(shMixin, FitsIOMixin):
     required_config_keys = ("H", "L",)  # For FitsIOMixin
     timeout = 60
 
-    def __init__(self, fp_or_buffer, telescope_config):
+    def __init__(self, fp_or_buffer, telescope=None):
         """Runs atrometry on a single fits file/image.
 
         Parameters
@@ -59,8 +59,9 @@ class Astrometry(shMixin, FitsIOMixin):
             'kait', 'nickel' or user specified config
         """
         name, path, image = self._parse_input(fp_or_buffer)
+        telescope = telescope or self.__get_telescope(image[0].header)
         telescope_config = self._parse_telescope_config(
-            telescope_config, 'ASTROMETRY_OPTIONS')
+            telescope, 'ASTROMETRY_OPTIONS')
         self.name = name
         self.path = path
         self.image = image

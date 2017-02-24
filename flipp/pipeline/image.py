@@ -2,9 +2,9 @@
 
 from __future__ import unicode_literals
 
+import os
 import re
 import dateutil
-import os
 import errno
 import logging
 import numpy as np
@@ -46,7 +46,7 @@ class ImageParser(FitsIOMixin, FileLoggerMixin, object):
         self.image = image
         # Preprocessing?  see META
         self.header = self.image[0].header
-        self.telescope = telescope or self.__get_telescope(telescope)
+        self.telescope = telescope or self.__get_telescope(self.header)
         self.astrometry = Astrometry(self.image, self.telescope)
         self.output_root = output_dir or settings.OUTPUT_ROOT
         self.output_dir = os.path.join(
@@ -75,36 +75,14 @@ class ImageParser(FitsIOMixin, FileLoggerMixin, object):
             )
         self.logger
 
-    def __get_telescope(self, telescope_name):
-        for h in settings.INSTRUMENT_HEADERS:
-            telescope = dict(self.header).get(h, None)
-            if telescope:  # Try some regex magic
-                for t in settings.TELESCOPES:  #.keys()
-                    if bool(re.search(t,
-                            re.sub("[^A-Za-z]", "", telescope, flags=re.I),
-                            flags=re.I)):
-                        return t
-        raise ImageFailedError("No telescope provided or found.")
-
     @property
     def META(self):
         if not hasattr(self, '_M'):
-            t = unicode(self.telescope)[0].lower()
-            # ==============================================================
-            # TEMPORARY : Ultimately want this to be "smart" or input-driven
-            #
-            # Note: the fits header keyword 'datid' is present for KAIT
-            #  images, but not in Nickel ones.  Weikang requests that we use
-            #  the filename of the original image, which should be encoded
-            #  in the filename of the input file like the regex "d\d{3}".
-            #  For example, the string "d123" or "d237".
-            # ==============================================================
-            # HEADERMAPS = { 'FILTER' : 'FILTERS', 'DATE' : 'date-obs',
-            #     'TIME' : 'ut', 'OBJECT' : 'object', 'DATID' : 'datid' }
-            # ==============================================================
             HEADERMAPS = settings.TELESCOPES[self.telescope]["HEADER_MAPS"]
             H = {k : str(self.header[v]).strip() \
                 for k, v in HEADERMAPS.iteritems() if self.header.get(v)}
+
+            # Try to get date and time
             dt = "{0} {1}".format(H['DATE'], H['TIME'].split('.')[0])
             try:
                 H['DATETIME'] = datetime.strptime(dt, "%d/%m/%Y %H:%M:%S")

@@ -9,21 +9,21 @@ python analogies of argument lists and keyword arguments.
 
 from __future__ import unicode_literals
 
+import re
 import os
 import sys
 import errno
-import shutil
 import logging
 
+from tempfile import mkstemp
 from astropy.io import fits
+from flipp.conf import settings
 
 if sys.version_info < (3, 3):
     import subprocess32 as subprocess
 else:
     import subprocess
 
-from tempfile import mkstemp
-from flipp.conf import settings
 
 TELESCOPES = settings.TELESCOPES
 Popen = subprocess.Popen
@@ -125,6 +125,7 @@ class shMixin(object):
         stdout, stderr = Popen(cmd, shell=True, stdout=PIPE, stderr=PIPE).communicate(timeout=cls.timeout)
         return cls.process_cmd(stdout, stderr)
 
+
 class FitsIOMixin(object):
     """Utilities for proxying .fits files as astropy HDUList objects."""
 
@@ -149,7 +150,7 @@ class FitsIOMixin(object):
                 image = get_zipped_fitsfile(obj)
             # strip out header commentary cards, which often have
             #  non-ascii characters
-            image = self._strip_commentary_cards(image) 
+            image = self._strip_commentary_cards(image)
             name = os.path.split(obj)[1]
             path = mkstemp(prefix="COPY-{0}".format(os.path.splitext(name)[0]),
                 suffix=".fits")[1]
@@ -176,18 +177,28 @@ class FitsIOMixin(object):
 
         return name, path, image
 
+    def __get_telescope(self, header):
+        for h in settings.INSTRUMENT_HEADERS:
+            telescope = dict(header).get(h, None)  # Try to get telescope name
+            if telescope:  # Try some regex magic
+                for t in settings.TELESCOPES:  #.keys()
+                    if bool(re.search(t,
+                            re.sub("[^A-Za-z]", "", telescope, flags=re.I),
+                            flags=re.I)):
+                        return t
+        raise ValueError("No telescope provided or found.")
+
     def _parse_telescope_config(self, obj, p=None):
+
         if isinstance(obj, basestring):
             # Assume someone has set up a dictionary in conf.py
             try:
                 config = dict(TELESCOPES[obj])
-
             except AttributeError as e:
                 excp = "'%s' is not configured in TELESCOPES configuration."
                 raise ConfigurationError(excp %(obj))
         elif isinstance(obj, dict):
             config = dict(obj)
-
         else:
             excp = "Telescope Configuration must be one of %s or dictionary."
             preset = list(TELESCOPES.keys())
@@ -197,7 +208,7 @@ class FitsIOMixin(object):
         return config
 
     def _strip_commentary_cards(self, image):
-        """Strips non-ASCII commentary cards from fits header; 
+        """Strips non-ASCII commentary cards from fits header;
         sometimes required for commentary cards that do not adhere
         to FITS standard.
         """
@@ -222,7 +233,7 @@ class FitsIOMixin(object):
                 excp = "Improperly configured telescope.  Missing %s."
                 raise ConfigurationError(excp %(k))
             else: pass
-    
+
     def save_img(self, img, path_to_output):
         if hasattr(img, "writeto"):
             dirname = os.path.dirname(output_file)
