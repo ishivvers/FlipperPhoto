@@ -19,6 +19,7 @@ class SourceMatcher(object):
 
     def __init__(self, imgparser):
         self.img = imgparser
+        self.logger = imgparser.logger
         self.sources = imgparser.sources
         self.telescope = imgparser.telescope
         self.meta = imgparser.META
@@ -76,6 +77,7 @@ class SourceMatcher(object):
             self.session.add(img)
             self.session.commit()
             created = True
+            #self.logger.info('Created new database entries for %(img)s', {'img':os.path.basename(img.name)})
         return created, img
 
     def add_observation(self, source, obj):
@@ -104,4 +106,6 @@ class SourceMatcher(object):
             else:
                 n_updated += 1
             self.add_observation(source, obj)
+        self.logger.info('Added %(nc)s new sources to database and updated photometry for %(nu)s others', {'nu':n_updated, 'nc':n_created})
         return n_updated, n_created
+

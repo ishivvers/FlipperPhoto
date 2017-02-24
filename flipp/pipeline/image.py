@@ -24,7 +24,6 @@ from flipp.libs import julian_dates
 from flipp.conf import settings
 
 SE = Sextractor()
-logger = logging.getLogger(__name__)
 
 class ImageFailedError(Exception):
     """Simple pipeline error; raised when nothing is wrong
@@ -73,7 +72,6 @@ class ImageParser(FitsIOMixin, FileLoggerMixin, object):
             self.output_dir,
             "flipp_{}.log".format(self.output_dir.split('/')[-1])
             )
-        self.logger
 
     def __get_telescope(self, telescope_name):
         for h in settings.INSTRUMENT_HEADERS:
@@ -153,8 +151,8 @@ class ImageParser(FitsIOMixin, FileLoggerMixin, object):
         if not img:
             raise ImageFailedError("Unable to correct image coordinates .")
 
-        self.logger.info("Successfully performed astrometry on %(img)s",
-            {"img" : self.name})
+        #self.logger.info("Successfully performed astrometry on %(img)s",
+        #    {"img" : self.name})
         name = "{object}_{date}_{time}_{datid}_{telescope}_{filter}_c.fit".format(
             object = self.META['OBJECT'],
             date = self.META['CLEAN_DATE'],
@@ -171,7 +169,7 @@ class ImageParser(FitsIOMixin, FileLoggerMixin, object):
             img = fits.open(output_file)
             os.remove(self.astrometry.outpath)  # This always exists if solve has been run
         self.logger.info("Saved wcs-corrected image %(img)s to %(out)s",
-            {"img" : self.name, "out" : output_file})
+            {"img" : self.name, "out" : os.path.basename(output_file)})
         return img
 
     def extract_stars(self, img, *args, **kwargs):
