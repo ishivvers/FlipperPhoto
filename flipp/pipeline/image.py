@@ -88,7 +88,6 @@ class ImageParser(FitsIOMixin, FileLoggerMixin, object):
     def META(self):
         if not hasattr(self, '_M'):
             t = unicode(self.telescope)[0].lower()
-
             # ==============================================================
             # TEMPORARY : Ultimately want this to be "smart" or input-driven
             #
@@ -108,7 +107,7 @@ class ImageParser(FitsIOMixin, FileLoggerMixin, object):
             try:
                 H['DATETIME'] = datetime.strptime(dt, "%d/%m/%Y %H:%M:%S")
             except ValueError:
-                H["DATETIME"] = dateutil.parser.parse("19/08/13 10:57:07", ignoretz=True)
+                H["DATETIME"] = dateutil.parser.parse(dt, ignoretz=True)
             H['CLEAN_DATE'] = '{:%Y%m%d}'.format(H['DATETIME'])
             H['FRACTIONAL_DATE'] = '{:%Y%m%d}{}'.format(H['DATETIME'],
                 '{:.4f}'.format(timedelta(
