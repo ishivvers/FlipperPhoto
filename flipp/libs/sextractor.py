@@ -100,7 +100,7 @@ class Sextractor(shMixin, FitsIOMixin):
 
         self._defaults = defaults
 
-    def extract(self, flag_filter=True, *args, **kwargs):
+    def _extract(self, flag_filter=True, *args, **kwargs):
         """Run source-extractor (sextractor) on the given image.
         If flag_filter == True, return only sources with FLAGS == 0
 
@@ -113,13 +113,14 @@ class Sextractor(shMixin, FitsIOMixin):
         self.last_cmd = self.configure(*args, **options)
         output = self.sh(self.path, *args, **options)
         # ===========================================================
-        # Keep track of the check images
+        # Keep track of the check images and outputs
         chk_imgs = options.get("CHECKIMAGE_NAME").split(",")
         for c in chk_imgs:
             if 'OBJECTS' in c:
                 self.chk_objects = c
             elif 'BKGRND' in c:
                 self.chk_bkgrnd = c
+        self.catalog_file = options.get("CATALOG_NAME")
         # ===========================================================
 
         with warnings.catch_warnings():
@@ -127,18 +128,32 @@ class Sextractor(shMixin, FitsIOMixin):
             catalog = Table.read(options.get("CATALOG_NAME"),
                                  format="ascii.sextractor")
 
-        # Cleanup tmp files
-        """
-        ORIGINALLY, there were plans to refine some kind of output using these.
-        Due to practical time constraints, we just delete them for now.
-        """
-        os.remove(options.get("CATALOG_NAME"))
-        os.remove(self.chk_objects)
-        os.remove(self.chk_bkgrnd)
-        os.remove(self.path)
+        # # Cleanup tmp files
+        # """
+        # ORIGINALLY, there were plans to refine some kind of output using these.
+        # Due to practical time constraints, we just delete them for now.
+        # """
+        # os.remove(options.get("CATALOG_NAME"))
+        # os.remove(self.chk_objects)
+        # os.remove(self.chk_bkgrnd)
+        # os.remove(self.path)
         if flag_filter:
             catalog = catalog[catalog['FLAGS'] == 0]
         return catalog
+
+    def _gc(self):
+        """Removes Check-images and other to-disk outputs.
+        """
+        to_remove = [self.chk_objects, self.chk_bkgrnd, self.catalog_file, self.path]
+        for f in to_remove:
+            if os.path.exists(f):
+                os.remove(f)
+
+    def extract(self, flag_filter=True, *args, **kwargs):
+        self.sources = self._extract(flag_filter, *args, **kwargs)
+        self._gc()
+        return self.sources
+
 
     def extract_stars(self, *args, **kwargs):
         """Extract sources on an image, attempt to classify
