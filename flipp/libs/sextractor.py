@@ -33,11 +33,33 @@ default_filter = os.path.join(SEXCONFPATH, "gauss_3.0_5x5.conv")
 default_nnw = os.path.join(SEXCONFPATH, "default.nnw")
 
 
-class sextractorConfig(object):
+SEXTRACTOR_OPTION_RE = re.compile("[A-Za-z_]+(?=\s)")
+SEXTRACTOR_VALUE_RE = re.compile("\S*(?=\s)")
+SEXTRACTOR_SECTION_RE = re.compile("\#(\-+)(\w|\s)+")
 
-    option_re = re.compile("[A-Za-z_]+(?=\s)")
-    value_re = re.compile("\S*(?=\s)")
-    section_re = re.compile("\#(\-+)(\w|\s)+")
+
+class Sextractor(shMixin, FitsIOMixin):
+    """Sextractor wrapper with config built in."""
+
+    cmd = SEXTRACTORPATH
+
+    def __init__(self, fp_or_buffer, telescope=None):
+        """Runs source extractor on a single fits file/image.
+
+        Parameters
+        ----------
+        fp_or_buffer : str, astropy.HDUList
+            filepath to image or astropy fits image
+        telescope_config : str
+            'kait', 'nickel' or user specified config
+        """
+        self.name, self.path, self.image = self._parse_input(fp_or_buffer)
+        self.telescope = telescope or self.get_telescope(self.image[0].header)
+        telescope_config = self._parse_telescope_config(self.telescope,
+                                                        "SEXTRACTOR_OPTIONS")
+        self.last_cmd = None
+        self.success = False
+        self.defaults = telescope_config
 
     def _sexconf2dict(self, path=default_sex):
         with open(path) as f:
@@ -47,52 +69,46 @@ class sextractorConfig(object):
 
     def _parse_sextractor_option(self, s):
         """Returns either a null or 2-tuple of available arguments to feed into sextractor."""
-        match = self.option_re.match(s)
+        match = SEXTRACTOR_OPTION_RE.match(s)
         if match:
             parts = re.split('\s+', s, 1)
             return match.group(), \
-                '"%s"' % (self.value_re.match(parts[1]).group())
+                '%s' % (SEXTRACTOR_VALUE_RE.match(parts[1]).group())
         return tuple()
 
+    @property
+    def defaults(self):
+        return dict(self._defaults)
 
-class Sextractor(sextractorConfig, shMixin, FitsIOMixin):
-    """Sextractor wrapper with config built in."""
+    @defaults.setter
+    def defaults(self, value):
+        #defaults = self._sexconf2dict()
+        defaults = {"CATALOG_NAME": mkstemp(suffix=".txt", prefix="CATALOG_")[1],
+                    "CHECKIMAGE_TYPE": "OBJECTS,BACKGROUND",  # Objects
+                    "CHECKIMAGE_NAME": "%s,%s" % (mkstemp(suffix=".fits", prefix="CHECK-OBJECTS_")[1], mkstemp(suffix=".fits", prefix="CHECK-BKGRND_")[1]),
+                    "FILTER_NAME": default_filter,
+                    "PARAMETERS_NAME": default_param,
+                    "STARNNW_NAME": default_nnw,
+                    "c": default_sex,
+                    }
+        defaults.update(value)
+        self._defaults = defaults
 
-    cmd = SEXTRACTORPATH
-
-    def set_defaults(self):
-        """Sets default settings for running sextractor."""
-
-        D = {"CATALOG_NAME": mkstemp(suffix=".txt", prefix="CATALOG_")[1],  # Catalog
-             "CHECKIMAGE_TYPE": "OBJECTS,BACKGROUND",  # Objects
-             "CHECKIMAGE_NAME": "%s,%s" % (mkstemp(suffix=".fits", prefix="CHECK-OBJECTS_")[1], mkstemp(suffix=".fits", prefix="CHECK-BKGRND_")[1]),
-             "FILTER_NAME": default_filter,
-             "PARAMETERS_NAME": default_param,
-             "STARNNW_NAME": default_nnw,
-             "c": default_sex,
-             }
-        return D
-
-
-    def extract(self, filepath_or_buffer, flag_filter=True, *args, **kwargs):
+    def extract(self, flag_filter=True, *args, **kwargs):
         """Run source-extractor (sextractor) on the given image.
         If flag_filter == True, return only sources with FLAGS == 0
 
         Note
         ----
 
-
         Return
         ------
 
         """
-        options = self.set_defaults()
+        options = self.defaults
         options.update(kwargs)
-        name, path, image = self._parse_input(filepath_or_buffer)
-        self.path = path
         self.last_cmd = self.configure(*args, **options)
         output = self.sh(self.path, *args, **options)
-
         # ===========================================================
         # Keep track of the check images
         chk_imgs = options.get("CHECKIMAGE_NAME").split(",")
@@ -121,14 +137,14 @@ class Sextractor(sextractorConfig, shMixin, FitsIOMixin):
             catalog = catalog[catalog['FLAGS'] == 0]
         return catalog
 
-    def extract_stars(self, filepath_or_buffer, *args, **kwargs):
+    def extract_stars(self, *args, **kwargs):
         """Extract sources on an image, attempt to classify
         each source as star/not-star, and return only those
         sources labeled a star.
         """
         thresh = kwargs.pop('thresh', 0.5)  # the threshold applied to
         #  source extactor's CLASS_STAR
-        sources = self.extract(filepath_or_buffer, *args, **kwargs)
+        sources = self.extract(*args, **kwargs)
         pix_scale = 0.8  # this telescope-dependant number should be
         #  stored along with other parameters of the
         #  telesope, probably in global config file.
