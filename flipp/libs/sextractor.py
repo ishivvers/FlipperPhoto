@@ -83,15 +83,22 @@ class Sextractor(shMixin, FitsIOMixin):
     @defaults.setter
     def defaults(self, value):
         #defaults = self._sexconf2dict()
-        defaults = {"CATALOG_NAME": mkstemp(suffix=".txt", prefix="CATALOG_")[1],
+        defaults = dict(value)
+        if "CATALOG_NAME" not in defaults:
+            defaults.update(CATALOG_NAME = mkstemp(suffix=".txt", prefix="CATALOG_")[1])
+        if "CHECKIMAGE_NAME" not in defaults:
+            defaults.update({
+                "CHECKIMAGE_NAME": "%s,%s" % (
+                    mkstemp(suffix=".fits", prefix="CHECK-OBJECTS_")[1],
+                    mkstemp(suffix=".fits", prefix="CHECK-BKGRND_")[1])})
+        defaults.update({
                     "CHECKIMAGE_TYPE": "OBJECTS,BACKGROUND",  # Objects
-                    "CHECKIMAGE_NAME": "%s,%s" % (mkstemp(suffix=".fits", prefix="CHECK-OBJECTS_")[1], mkstemp(suffix=".fits", prefix="CHECK-BKGRND_")[1]),
                     "FILTER_NAME": default_filter,
                     "PARAMETERS_NAME": default_param,
                     "STARNNW_NAME": default_nnw,
                     "c": default_sex,
-                    }
-        defaults.update(value)
+                    })
+
         self._defaults = defaults
 
     def extract(self, flag_filter=True, *args, **kwargs):
@@ -129,7 +136,7 @@ class Sextractor(shMixin, FitsIOMixin):
         ORIGINALLY, there were plans to refine some kind of output using these.
         Due to practical time constraints, we just delete them for now.
         """
-        os.remove(options.get("CATALOG_NAME"))
+        # os.remove(options.get("CATALOG_NAME"))
         os.remove(self.chk_objects)
         os.remove(self.chk_bkgrnd)
         os.remove(self.path)
