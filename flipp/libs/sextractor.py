@@ -83,7 +83,14 @@ class Sextractor(shMixin, FitsIOMixin):
     @defaults.setter
     def defaults(self, value):
         #defaults = self._sexconf2dict()
-        defaults = dict(value)
+        defaults = {
+                    "CHECKIMAGE_TYPE": "OBJECTS,BACKGROUND",  # Objects
+                    "FILTER_NAME": default_filter,
+                    "PARAMETERS_NAME": default_param,
+                    "STARNNW_NAME": default_nnw,
+                    "c": default_sex,
+                    }
+        defaults = defaults.update(value)
         if "CATALOG_NAME" not in defaults:
             defaults.update(CATALOG_NAME = mkstemp(suffix=".txt", prefix="CATALOG_")[1])
         if "CHECKIMAGE_NAME" not in defaults:
@@ -91,13 +98,6 @@ class Sextractor(shMixin, FitsIOMixin):
                 "CHECKIMAGE_NAME": "%s,%s" % (
                     mkstemp(suffix=".fits", prefix="CHECK-OBJECTS_")[1],
                     mkstemp(suffix=".fits", prefix="CHECK-BKGRND_")[1])})
-        defaults.update({
-                    "CHECKIMAGE_TYPE": "OBJECTS,BACKGROUND",  # Objects
-                    "FILTER_NAME": default_filter,
-                    "PARAMETERS_NAME": default_param,
-                    "STARNNW_NAME": default_nnw,
-                    "c": default_sex,
-                    })
 
         self._defaults = defaults
 
