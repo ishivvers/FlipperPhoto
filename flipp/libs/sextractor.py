@@ -136,7 +136,7 @@ class Sextractor(shMixin, FitsIOMixin):
         ORIGINALLY, there were plans to refine some kind of output using these.
         Due to practical time constraints, we just delete them for now.
         """
-        # os.remove(options.get("CATALOG_NAME"))
+        os.remove(options.get("CATALOG_NAME"))
         os.remove(self.chk_objects)
         os.remove(self.chk_bkgrnd)
         os.remove(self.path)
