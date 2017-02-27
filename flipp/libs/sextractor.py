@@ -128,15 +128,6 @@ class Sextractor(shMixin, FitsIOMixin):
             catalog = Table.read(options.get("CATALOG_NAME"),
                                  format="ascii.sextractor")
 
-        # # Cleanup tmp files
-        # """
-        # ORIGINALLY, there were plans to refine some kind of output using these.
-        # Due to practical time constraints, we just delete them for now.
-        # """
-        # os.remove(options.get("CATALOG_NAME"))
-        # os.remove(self.chk_objects)
-        # os.remove(self.chk_bkgrnd)
-        # os.remove(self.path)
         if flag_filter:
             catalog = catalog[catalog['FLAGS'] == 0]
         return catalog
@@ -149,9 +140,10 @@ class Sextractor(shMixin, FitsIOMixin):
             if os.path.exists(f):
                 os.remove(f)
 
-    def extract(self, flag_filter=True, *args, **kwargs):
+    def extract(self, clean_checkfiles=True, flag_filter=True, *args, **kwargs):
         self.sources = self._extract(flag_filter, *args, **kwargs)
-        self._gc()
+        if clean_checkfiles:
+            self._gc()
         return self.sources
 
 
