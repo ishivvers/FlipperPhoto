@@ -82,7 +82,6 @@ class Sextractor(shMixin, FitsIOMixin):
 
     @defaults.setter
     def defaults(self, value):
-        #defaults = self._sexconf2dict()
         defaults = {
                     "CHECKIMAGE_TYPE": "OBJECTS,BACKGROUND",  # Objects
                     "FILTER_NAME": default_filter,
@@ -90,7 +89,7 @@ class Sextractor(shMixin, FitsIOMixin):
                     "STARNNW_NAME": default_nnw,
                     "c": default_sex,
                     }
-        defaults = defaults.update(value)
+        defaults.update(value)
         if "CATALOG_NAME" not in defaults:
             defaults.update(CATALOG_NAME = mkstemp(suffix=".txt", prefix="CATALOG_")[1])
         if "CHECKIMAGE_NAME" not in defaults:
@@ -105,12 +104,9 @@ class Sextractor(shMixin, FitsIOMixin):
         """Run source-extractor (sextractor) on the given image.
         If flag_filter == True, return only sources with FLAGS == 0
 
-        Note
-        ----
-
         Return
         ------
-
+        astropy.
         """
         options = self.defaults
         options.update(kwargs)
