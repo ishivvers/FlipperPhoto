@@ -34,18 +34,21 @@ setup(
     packages=find_packages(exclude=['contrib', 'docs', 'tests']),
 
     install_requires=['future',
-        'numpy>=1.1.0',
-        'astropy>=1.2.0',
-        'pandas>=0.15.0',
-        'sqlalchemy>=1.0.10',
-        'fabric>=1.12.0',
-        'matplotlib',
-        'requests',],
+                      'numpy>=1.1.0',
+                      'astropy>=1.2.0',
+                      'pandas>=0.15.0',
+                      'sqlalchemy>=1.0.10',
+                      'fabric>=1.12.0',
+                      'matplotlib',
+                      'requests',
+                      'subprocess32'
+                      ],
 
     extras_require={
         'dev': ['check-manifest'],
         'test': ['coverage', 'nose'],
-        'psql' : ['psycopg2'],
+        'psql': ['psycopg2'],
+        'mysql': ['MySQL-python']
     },
 
     package_data={
