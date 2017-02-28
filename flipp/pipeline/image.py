@@ -11,6 +11,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from astropy.io import fits
+from astropy.time import Time
 from datetime import datetime, timedelta
 from glob import glob
 
@@ -20,7 +21,6 @@ from flipp.libs.zeropoint import Zeropoint_apass
 from flipp.libs.utils import FitsIOMixin, FileLoggerMixin, mkdir
 from flipp.libs.fileio import plot_one_image
 
-from flipp.libs import julian_dates
 from flipp.conf import settings
 
 from subprocess32 import TimeoutExpired
@@ -102,10 +102,7 @@ class ImageParser(FitsIOMixin, FileLoggerMixin, object):
                                  seconds=H['DATETIME'].second).total_seconds() / (60. * 60. * 24.)
             H['FRACTIONAL_DATE'] = '{:%Y%m%d}{}'.format(
                 H['DATETIME'], '{:.4f}'.format(fracdate).lstrip('0'))
-            H['MJD'] = julian_dates.julian_date(
-                *map(lambda x: getattr(H['DATETIME'], x),
-                     ['year', 'month', 'day', 'hour', 'minute', 'second']
-                     )) - 2400000.5
+            H['MJD'] = Time( H['DATETIME'] ).mjd
             H['INSTRUMENT'] = self.telescope
             H['OBJECT'] = H['OBJECT'].replace('_', '-').replace(' ', '-')
 
