@@ -148,14 +148,15 @@ class ImageParser(FitsIOMixin, FileLoggerMixin, object):
 
     def solve_field(self):
         """Perform astrometry, write image and extract sources."""
-        astrometry = Astrometry(self.image, self.telescope)
-        img = astrometry.solve()
+        # astrometry = Astrometry(self.image, self.telescope)
+        # img = astrometry.solve()
+        img = None
 
         # self.logger.info("Successfully performed astrometry on %(img)s",
         #    {"img" : self.name})
 
         if not img:
-            REVIEW_DIR = os.path.join(self.output_root, "REVIEW")
+            REVIEW_DIR = os.path.join(self.output_root, "REVIEW", '{:%Y%m%d}'.format(self.META['DATETIME']))
             mkdir(REVIEW_DIR)
             output_file = os.path.join(REVIEW_DIR, self.output_name)
             with open(output_file, 'w') as f:
@@ -213,10 +214,10 @@ class ImageParser(FitsIOMixin, FileLoggerMixin, object):
                     c='firebrick', marker='x', s=50)
         plt.show()
 
-    def run(self, run_astrometry=True, *args, **kwargs):
+    def run(self, skip_astrometry=False, *args, **kwargs):
         try:
             self.validate()
-            if run_astrometry:
+            if not skip_astrometry:
                 sources = self.extract_stars(self.solve_field())
             else:
                 output_file = os.path.join(self.output_dir, self.output_name)

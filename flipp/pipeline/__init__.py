@@ -13,10 +13,10 @@ from flipp.pipeline.match import SourceMatcher
 from flipp.conf import settings
 
 
-def process_image(input_file, path_to_output, telescope=None, run_astrometry=True):
+def process_image(input_file, path_to_output, telescope=None, skip_astrometry=False):
     try:
         img = ImageParser(input_file, path_to_output, telescope)
-        sources = img.run(run_astrometry=run_astrometry)
+        sources = img.run(skip_astrometry=skip_astrometry)
         if not sources:
             return
         matcher = SourceMatcher(img)
@@ -29,7 +29,7 @@ def process_image(input_file, path_to_output, telescope=None, run_astrometry=Tru
         gc.collect()
 
 
-def run(input_paths, path_to_output=None, telescope=None, extensions=[], recursive=False,  run_astrometry=True,):
+def run(input_paths, path_to_output=None, telescope=None, extensions=[], recursive=False,  skip_astrometry=False,):
     """Business logic for running task.
 
     Example
@@ -47,20 +47,20 @@ def run(input_paths, path_to_output=None, telescope=None, extensions=[], recursi
 
             if not R.search(input_path):
                 continue
-            process_image(input_path, path_to_output, telescope, run_astrometry)
+            process_image(input_path, path_to_output, telescope, skip_astrometry)
         else:  # os.path.isdir(input_path)
             if not recursive:
                 for p in filter(os.path.isfile, os.listdir(input_path)):
                     if not R.search(input_path):
                         continue
-                    process_image(p, path_to_output, telescope, run_astrometry)
+                    process_image(p, path_to_output, telescope, skip_astrometry)
             else:  # recursive == True
                 for (name, dirs, files) in os.walk(input_path):
                     for f in files:
                         if not R.search(f):
                             continue
                         f = os.path.join(name, f)
-                        process_image(f, path_to_output, telescope, run_astrometry)
+                        process_image(f, path_to_output, telescope, skip_astrometry)
 
 def console_run():
     """Console script entry-point for flipp pipeline."""
