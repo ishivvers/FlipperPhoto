@@ -24,10 +24,19 @@ from flipp.libs import julian_dates
 from flipp.conf import settings
 
 
+REVIEW_DIR = os.path.join(settings.OUTPUT_ROOT, "REVIEW")
+"""Copy images that fail to a separate directory for manual review."""
+
+
 class ImageFailedError(Exception):
     """Simple pipeline error; raised when nothing is wrong
     but an image is bad.
     """
+    pass
+
+
+class AstrometryFailedError(Exception):
+    """Raise when astrometry fails."""
     pass
 
 
@@ -74,6 +83,7 @@ class ImageParser(FitsIOMixin, FileLoggerMixin, object):
 
     @property
     def META(self):
+        """This is pretty ugly, should be refactored into FITSIO mixin."""
         if not hasattr(self, '_M'):
             HEADERMAPS = settings.TELESCOPES[self.telescope]["HEADER_MAPS"]
             H = {k: str(self.header[v]).strip()
@@ -83,16 +93,15 @@ class ImageParser(FitsIOMixin, FileLoggerMixin, object):
             dt = "{0} {1}".format(H['DATE'], H['TIME'].split('.')[0])
             try:
                 H['DATETIME'] = datetime.strptime(dt, "%d/%m/%Y %H:%M:%S")
-            except ValueError:
+            except ValueError:  # Try using dateutil
                 H["DATETIME"] = dateutil.parser.parse(dt, ignoretz=True)
             H['CLEAN_DATE'] = '{:%Y%m%d}'.format(H['DATETIME'])
-            H['FRACTIONAL_DATE'] = '{:%Y%m%d}{}'.format(H['DATETIME'],
-                                                        '{:.4f}'.format(timedelta(
-                                                            hours=H[
-                                                                'DATETIME'].hour,
-                                                            minutes=H[
-                                                                'DATETIME'].minute,
-                                                            seconds=H['DATETIME'].second).total_seconds() / (60. * 60. * 24.)).lstrip('0'))
+            H['CLEAN_TIME'] = '{:%H%M%S}'.format(H["DATETIME"])
+            fracdate = timedelta(hours=H['DATETIME'].hour,
+                                 minutes=H['DATETIME'].minute,
+                                 seconds=H['DATETIME'].second).total_seconds() / (60. * 60. * 24.)
+            H['FRACTIONAL_DATE'] = '{:%Y%m%d}{}'.format(
+                H['DATETIME'], '{:.4f}'.format(fracdate).lstrip('0'))
             H['MJD'] = julian_dates.julian_date(
                 *map(lambda x: getattr(H['DATETIME'], x),
                      ['year', 'month', 'day', 'hour', 'minute', 'second']
@@ -128,21 +137,27 @@ class ImageParser(FitsIOMixin, FileLoggerMixin, object):
     def solve_field(self):
         """Perform astrometry, write image and extract sources."""
         img = self.astrometry.solve()
-        if not img:
-            raise ImageFailedError("Unable to correct image coordinates .")
 
         # self.logger.info("Successfully performed astrometry on %(img)s",
         #    {"img" : self.name})
         name = "{object}_{date}_{time}_{datid}_{telescope}_{filter}_c.fit".format(
             object=self.META['OBJECT'],
             date=self.META['CLEAN_DATE'],
-            time=self.META['TIME'].replace(':', ''),
+            time=self.META['CLEAN_TIME'].replace(':', ''),
             datid=self.META['DATID'],
             telescope=self.telescope,
             filter=self.META['FILTER']
         )
-        output_file = os.path.join(self.output_dir, name)
 
+        if not img:
+            mkdir(REVIEW_DIR)
+            output_file = os.path.join(REVIEW_DIR, name)
+            with open(output_file, 'w') as f:
+                self.image.writeto(f)
+                self.output_file = output_file
+            raise AstrometryFailedError("Unable to correct image coordinates.")
+
+        output_file = os.path.join(self.output_dir, name)
         with open(output_file, 'w') as f:
             img.writeto(f)
             self.output_file = output_file
@@ -202,6 +217,10 @@ class ImageParser(FitsIOMixin, FileLoggerMixin, object):
         except ImageFailedError as e:
             self.logger.error("%(img)s encountered an error %(e)s",
                               {"img": self.name, "e": unicode(e)})
+        except AstrometryFailedError as e:
+            self.logger.error(
+                "Failed to run astrometry on %(img)s. Copied to %(out)s",
+                {"img": self.name, "out": self.output_file})
         except Exception as e:
             # Handle specific errors
             self.logger.exception(e)
