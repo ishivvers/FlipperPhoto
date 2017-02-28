@@ -148,9 +148,8 @@ class ImageParser(FitsIOMixin, FileLoggerMixin, object):
 
     def solve_field(self):
         """Perform astrometry, write image and extract sources."""
-        # astrometry = Astrometry(self.image, self.telescope)
-        # img = astrometry.solve()
-        img = None
+        astrometry = Astrometry(self.image, self.telescope)
+        img = astrometry.solve()
 
         # self.logger.info("Successfully performed astrometry on %(img)s",
         #    {"img" : self.name})
