@@ -54,7 +54,6 @@ class ImageParser(FitsIOMixin, FileLoggerMixin, object):
         # Preprocessing?  see META
         self.header = self.image[0].header
         self.telescope = telescope or self.get_telescope(self.header)
-        self.astrometry = Astrometry(self.image, self.telescope)
         self.output_root = output_dir or settings.OUTPUT_ROOT
         self.output_dir = os.path.join(
             self.output_root,
@@ -125,6 +124,18 @@ class ImageParser(FitsIOMixin, FileLoggerMixin, object):
             self._M = H
         return self._M
 
+    @property
+    def output_name(self):
+        name = "{object}_{date}_{time}_{datid}_{telescope}_{filter}_c.fit".format(
+            object=self.META['OBJECT'],
+            date=self.META['CLEAN_DATE'],
+            time=self.META['CLEAN_TIME'].replace(':', ''),
+            datid=self.META['DATID'],
+            telescope=self.telescope,
+            filter=self.META['FILTER']
+        )
+        return name
+
     def validate(self):
         """TEMPORARY!  Validate image and continue to run.
         """
@@ -136,34 +147,29 @@ class ImageParser(FitsIOMixin, FileLoggerMixin, object):
 
     def solve_field(self):
         """Perform astrometry, write image and extract sources."""
-        img = self.astrometry.solve()
+        astrometry = Astrometry(self.image, self.telescope)
+        img = astrometry.solve()
 
         # self.logger.info("Successfully performed astrometry on %(img)s",
         #    {"img" : self.name})
-        name = "{object}_{date}_{time}_{datid}_{telescope}_{filter}_c.fit".format(
-            object=self.META['OBJECT'],
-            date=self.META['CLEAN_DATE'],
-            time=self.META['CLEAN_TIME'].replace(':', ''),
-            datid=self.META['DATID'],
-            telescope=self.telescope,
-            filter=self.META['FILTER']
-        )
 
         if not img:
+            REVIEW_DIR = os.path.join(self.output_root, "REVIEW")
             mkdir(REVIEW_DIR)
-            output_file = os.path.join(REVIEW_DIR, name)
+            output_file = os.path.join(REVIEW_DIR, self.output_name)
             with open(output_file, 'w') as f:
                 self.image.writeto(f)
                 self.output_file = output_file
             raise AstrometryFailedError("Unable to correct image coordinates.")
 
-        output_file = os.path.join(self.output_dir, name)
+
+        output_file = os.path.join(self.output_dir, self.output_name)
         with open(output_file, 'w') as f:
             img.writeto(f)
             self.output_file = output_file
             img = fits.open(output_file)
             # This always exists if solve has been run
-            os.remove(self.astrometry.outpath)
+            os.remove(astrometry.outpath)
         self.logger.info("Saved wcs-corrected image %(img)s to %(out)s",
                          {"img": self.name,
                           "out": os.path.basename(output_file)})
@@ -207,10 +213,16 @@ class ImageParser(FitsIOMixin, FileLoggerMixin, object):
                     c='firebrick', marker='x', s=50)
         plt.show()
 
-    def run(self, *args, **kwargs):
+    def run(self, run_astrometry=True, *args, **kwargs):
         try:
             self.validate()
-            sources = self.extract_stars(self.solve_field())
+            if run_astrometry:
+                sources = self.extract_stars(self.solve_field())
+            else:
+                output_file = os.path.join(self.output_dir, self.output_name)
+                with open(output_file, 'w') as f:
+                    self.image.writeto(f)
+                sources = self.extract_stars(self.image)
             self.sources = self.zeropoint(sources)
             os.remove(self.file)
             return self.sources

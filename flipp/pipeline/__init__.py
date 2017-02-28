@@ -13,10 +13,10 @@ from flipp.pipeline.match import SourceMatcher
 from flipp.conf import settings
 
 
-def process_image(input_file, path_to_output, telescope):
+def process_image(input_file, path_to_output, telescope=None, run_astrometry=True):
     try:
         img = ImageParser(input_file, path_to_output, telescope)
-        sources = img.run()
+        sources = img.run(run_astrometry=run_astrometry)
         if not sources:
             return
         matcher = SourceMatcher(img)
@@ -29,7 +29,7 @@ def process_image(input_file, path_to_output, telescope):
         gc.collect()
 
 
-def run(input_paths, path_to_output=None, telescope=None, extensions=[], recursive=False):
+def run(input_paths, path_to_output=None, telescope=None, extensions=[], recursive=False,  run_astrometry=True,):
     """Business logic for running task.
 
     Example
@@ -47,20 +47,20 @@ def run(input_paths, path_to_output=None, telescope=None, extensions=[], recursi
 
             if not R.search(input_path):
                 continue
-            process_image(input_path, path_to_output, telescope)
+            process_image(input_path, path_to_output, telescope, run_astrometry)
         else:  # os.path.isdir(input_path)
             if not recursive:
                 for p in filter(os.path.isfile, os.listdir(input_path)):
                     if not R.search(input_path):
                         continue
-                    process_image(p, path_to_output, telescope)
+                    process_image(p, path_to_output, telescope, run_astrometry)
             else:  # recursive == True
                 for (name, dirs, files) in os.walk(input_path):
                     for f in files:
                         if not R.search(f):
                             continue
                         f = os.path.join(name, f)
-                        process_image(f, path_to_output, telescope)
+                        process_image(f, path_to_output, telescope, run_astrometry)
 
 def console_run():
     """Console script entry-point for flipp pipeline."""
@@ -80,6 +80,7 @@ def console_run():
     parser.add_argument("-r", "--recursive", action="store_true")
     parser.add_argument("-e", "--extensions", type=str, help="valid extensions", nargs = "*",
                         default=["fits", "fts", "fit", "fits.Z", "fts.Z", "fit.Z"])
+    parser.add_argument("-s", "--skip_astrometry", action="store_true")
 
     args = parser.parse_args()
-    run(args.input_files, args.output_dir, args.telescope, args.extensions, args.recursive)
+    run(args.input_files, args.output_dir, args.telescope, args.extensions, args.recursive, args.skip_astrometry)
