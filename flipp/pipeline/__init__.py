@@ -65,22 +65,25 @@ def run(input_paths, path_to_output=None, telescope=None, extensions=[], recursi
 def console_run():
     """Console script entry-point for flipp pipeline."""
     parser = argparse.ArgumentParser(
-        description='Run flipp pipeline on a file with some output directory.')
+        description='Run flipp pipeline on a file with some output directory.',
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     parser.add_argument("input_files", metavar= "file1 file2 ...", type=str,
         help="filepath to image.", nargs='+')
     parser.add_argument("-o", "--output_dir", metavar="/path/to/output/directory", type=str,
-        help = "Directory in which to save outputs", default="outputs")
+        help = "Directory in which to save outputs", default=settings.OUTPUT_ROOT)
     parser.add_argument("-t", "--telescope", metavar = "kait/nickel/etc",
         choices = settings.TELESCOPES.keys(),
-        help = 'Optional telescope name from allowed names, {}'.format(
+        help = ('Optional telescope name from allowed names: {}.  '
+               'If none, guesses from fits header').format(
             ', '.join(settings.TELESCOPES)),
         default = None,
         )
     parser.add_argument("-r", "--recursive", action="store_true")
-    parser.add_argument("-e", "--extensions", type=str, help="valid extensions", nargs = "*",
+    parser.add_argument("-e", "--extensions", type=str, metavar="ext", help="valid extensions", nargs = "*",
                         default=["fits", "fts", "fit", "fits.Z", "fts.Z", "fit.Z"])
-    parser.add_argument("-s", "--skip_astrometry", action="store_true")
+    parser.add_argument("-s", "--skip_astrometry", action="store_true",
+                    help="If set, assume wcs-coordinates are correct.  This is very hard to undo, please use with certainty!")
 
     args = parser.parse_args()
     run(args.input_files, args.output_dir, args.telescope, args.extensions, args.recursive, args.skip_astrometry)
