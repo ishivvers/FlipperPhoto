@@ -196,7 +196,7 @@ class ImageParser(FitsIOMixin, FileLoggerMixin, object):
         img = self.solve_field()
         stellar_sources = self.extract_stars(img, *args, **kwargs)
         SE = Sextractor(img, self.telescope)
-        all_sources = SE.extract()
+        all_sources = SE.extract( clean_checkfiles=False )
 
         fig0 = plot_one_image(self.image, title='Input Image')
         # mark all sources identified
