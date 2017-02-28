@@ -14,6 +14,17 @@ from flipp.conf import settings
 
 
 def process_image(input_file, path_to_output, telescope=None, skip_astrometry=False):
+    """Processes a single image, goes through the following steps:
+
+    1.  Goes to the ImageParser class
+        i.   Validates the image quality by checking for at least 3 detectable sources
+        ii.  Image coordinates are corrected via astrometry.net solve-field
+        iii. Sources are extracted via SourceExtractor
+        iv.  A zeropoint is done by matching against the APASS catalog
+    2.  Remaining sources that have been zeropoint-ed against APASS are cross referenced
+             against existing sources in the FLIPP Database (flipp/conf/local.py:DB_URL)
+
+    """
     try:
         img = ImageParser(input_file, path_to_output, telescope)
         sources = img.run(skip_astrometry=skip_astrometry)
@@ -38,11 +49,11 @@ def run(input_paths, path_to_output=None, telescope=None, extensions=[], recursi
         run("flipp/fixtures/kait/goodkait.fits",
             "/home/ttu/Desktop/goodkait", telescope="kait")
     """
-    path_to_output = os.path.abspath(path_to_output)
+    path_to_output = os.path.abspath(os.path.expanduser(path_to_output))
     R = re.compile('|'.join(map(re.escape, extensions)) + '$', flags=re.I)
     for input_path in input_paths:
 
-        input_path = os.path.abspath(input_path)
+        input_path = os.path.abspath(os.path.expanduser(input_path))
         if os.path.isfile(input_path):
 
             if not R.search(input_path):
@@ -86,4 +97,5 @@ def console_run():
                     help="If set, assume wcs-coordinates are correct.  This is very hard to undo, please use with certainty!")
 
     args = parser.parse_args()
+
     run(args.input_files, args.output_dir, args.telescope, args.extensions, args.recursive, args.skip_astrometry)
