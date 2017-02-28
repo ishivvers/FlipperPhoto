@@ -1,4 +1,7 @@
 #!/bin/bash
+# This is a quick bash script that searches for all fits files within
+#  the given input folder, assuming the normal KAIT naming scheme, and
+#  runs flipphot on them.
 
 if [ !  -z  ${1}  ] & [ ! -z ${2} ]; then
   echo "Input folder: ${1}";
