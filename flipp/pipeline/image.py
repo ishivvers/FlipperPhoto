@@ -23,6 +23,7 @@ from flipp.libs.fileio import plot_one_image
 from flipp.libs import julian_dates
 from flipp.conf import settings
 
+from subprocess32 import TimeoutExpired
 
 REVIEW_DIR = os.path.join(settings.OUTPUT_ROOT, "REVIEW")
 """Copy images that fail to a separate directory for manual review."""
@@ -162,7 +163,6 @@ class ImageParser(FitsIOMixin, FileLoggerMixin, object):
                 self.output_file = output_file
             raise AstrometryFailedError("Unable to correct image coordinates.")
 
-
         output_file = os.path.join(self.output_dir, self.output_name)
         with open(output_file, 'w') as f:
             img.writeto(f)
@@ -227,12 +227,18 @@ class ImageParser(FitsIOMixin, FileLoggerMixin, object):
             os.remove(self.file)
             return self.sources
         except ImageFailedError as e:
-            self.logger.error("%(img)s encountered an error %(e)s",
+            self.logger.error("%(img)s encountered an error: %(e)s",
+                              {"img": self.name, "e": unicode(e)})
+        except ValidationError as e:
+            self.logger.error("%(img)s failed validation: %(e)s",
                               {"img": self.name, "e": unicode(e)})
         except AstrometryFailedError as e:
             self.logger.error(
                 "Failed to run astrometry on %(img)s. Copied to %(out)s",
                 {"img": self.name, "out": self.output_file})
+        except TimeoutExpired as e:
+            self.logger.error("astrometry timed out on %(img)s: %(e)s",
+                              {"img": self.name, "e": unicode(e)})
         except Exception as e:
             # Handle specific errors
             self.logger.exception(e)
