@@ -233,13 +233,13 @@ class ImageParser(FitsIOMixin, FileLoggerMixin, object):
         except ValidationError as e:
             self.logger.error("%(img)s failed validation: %(e)s",
                               {"img": self.name, "e": unicode(e)})
-        except AstrometryFailedError as e:
+        except (AstrometryFailedError, TimeoutExpired) as e:
             self.logger.error(
                 "Failed to run astrometry on %(img)s. Copied to %(out)s",
                 {"img": self.name, "out": self.output_file})
-        except TimeoutExpired as e:
-            self.logger.error("astrometry timed out on %(img)s: %(e)s",
-                              {"img": self.name, "e": unicode(e)})
+            if isinstance(e, TimeoutExpired):
+                self.logger.error("astrometry timed out on %(img)s: %(e)s",
+                                  {"img": self.name, "e": unicode(e)})
         except Exception as e:
             # Handle specific errors
             self.logger.exception(e)
