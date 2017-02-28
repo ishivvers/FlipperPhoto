@@ -25,13 +25,13 @@ from flipp.conf import settings
 
 SE = Sextractor()
 
+from subprocess32 import TimeoutExpired
 
 class ImageFailedError(Exception):
     """Simple pipeline error; raised when nothing is wrong
     but an image is bad.
     """
     pass
-
 
 class ValidationError(Exception):
     pass
@@ -131,7 +131,7 @@ class ImageParser(FitsIOMixin, FileLoggerMixin, object):
         """Perform astrometry, write image and extract sources."""
         img = self.astrometry.solve()
         if not img:
-            raise ImageFailedError("Unable to correct image coordinates .")
+            raise ImageFailedError("Unable to correct image coordinates.")
 
         # self.logger.info("Successfully performed astrometry on %(img)s",
         #    {"img" : self.name})
@@ -201,8 +201,14 @@ class ImageParser(FitsIOMixin, FileLoggerMixin, object):
             os.remove(self.file)
             return self.sources
         except ImageFailedError as e:
-            self.logger.error("%(img)s encountered an error %(e)s",
+            self.logger.error("%(img)s encountered an error: %(e)s",
                               {"img": self.name, "e": unicode(e)})
+        except ValidationError as e:
+            self.logger.error("%(img)s failed validation: %(e)s",
+                              {"img": self.name, "e": unicode(e)})
+        except TimeoutExpired as e:
+            self.logger.error("astrometry timed out on %(img)s: %(e)s",
+                              {"img": self.name, "e": unicode(e)}) 
         except Exception as e:
             # Handle specific errors
             self.logger.exception(e)
