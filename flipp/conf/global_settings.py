@@ -25,6 +25,8 @@ TELESCOPES = {
             "L" : 0.79, # --scale-low
             "H" : 0.80  # --scale-high
             },
+        "SEXTRACTOR_OPTIONS":{
+        },
         "HEADER_MAPS" : {
             "FILTER" : "FILTERS",
             "DATE" : "date-obs",
@@ -38,6 +40,9 @@ TELESCOPES = {
             "L" : 0.36, # --scale-low
             "H" : 0.38  # --scale-high
             },
+        "SEXTRACTOR_OPTIONS":{
+
+        },
         "HEADER_MAPS" : {
             "FILTER" : "FILTNAM",
             "DATE" : "DATE-OBS",

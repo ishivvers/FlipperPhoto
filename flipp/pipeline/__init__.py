@@ -73,7 +73,7 @@ def console_run():
         help = "Directory in which to save outputs", default="outputs")
     parser.add_argument("-t", "--telescope", metavar = "kait/nickel/etc",
         choices = settings.TELESCOPES.keys(),
-        help = 'Telescope name from allowed names, {}'.format(
+        help = 'Optional telescope name from allowed names, {}'.format(
             ', '.join(settings.TELESCOPES)),
         default = None,
         )

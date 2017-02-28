@@ -23,8 +23,6 @@ from flipp.libs.fileio import plot_one_image
 from flipp.libs import julian_dates
 from flipp.conf import settings
 
-SE = Sextractor()
-
 from subprocess32 import TimeoutExpired
 
 class ImageFailedError(Exception):
@@ -122,7 +120,7 @@ class ImageParser(FitsIOMixin, FileLoggerMixin, object):
         """TEMPORARY!  Validate image and continue to run.
         """
         threshold = 3
-        sources = SE.extract(self.image)
+        sources = Sextractor(self.image, self.telescope).extract()
         msg = "Source Extractor failed to detect at least {0} sources"
         if len(sources) <= threshold:
             raise ValidationError(msg.format(threshold))
@@ -160,7 +158,7 @@ class ImageParser(FitsIOMixin, FileLoggerMixin, object):
         # because the SE star/galaxy classifications are not trustworthy,
         # extract everything for now
         # return SE.extract_stars(img, *args, **kwargs)
-        return SE.extract(img, *args, **kwargs)
+        return Sextractor(img).extract(*args, **kwargs)
 
     def zeropoint(self, sources):
         threshold = 3
@@ -179,7 +177,8 @@ class ImageParser(FitsIOMixin, FileLoggerMixin, object):
         """
         img = self.solve_field()
         stellar_sources = self.extract_stars(img, *args, **kwargs)
-        all_sources = SE.extract(img)
+        SE = Sextractor(img, self.telescope)
+        all_sources = SE.extract()
 
         fig0 = plot_one_image(self.image, title='Input Image')
         # mark all sources identified
