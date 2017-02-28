@@ -60,9 +60,11 @@ def run(input_paths, path_to_output=None, telescope=None, extensions=[], recursi
                 continue
             process_image(input_path, path_to_output, telescope, skip_astrometry)
         else:  # os.path.isdir(input_path)
-            if not recursive:
-                for p in filter(os.path.isfile, os.listdir(input_path)):
-                    if not R.search(input_path):
+            if not recursive:  # Just check directory files
+                paths = map(lambda x : os.path.abspath(os.path.join(input_path, x)),
+                            os.listdir(input_path))
+                for p in filter(os.path.isfile, paths):
+                    if not R.search(p):
                         continue
                     process_image(p, path_to_output, telescope, skip_astrometry)
             else:  # recursive == True
