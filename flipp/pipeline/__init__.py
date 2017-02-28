@@ -69,7 +69,7 @@ def console_run():
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     parser.add_argument("input_files", metavar= "file1 file2 ...", type=str,
-        help="filepath to image.", nargs='+')
+        help="filepath to image or directory containing images.", nargs='+')
     parser.add_argument("-o", "--output_dir", metavar="/path/to/output/directory", type=str,
         help = "Directory in which to save outputs", default=settings.OUTPUT_ROOT)
     parser.add_argument("-t", "--telescope", metavar = "kait/nickel/etc",
@@ -79,7 +79,7 @@ def console_run():
             ', '.join(settings.TELESCOPES)),
         default = None,
         )
-    parser.add_argument("-r", "--recursive", action="store_true")
+    parser.add_argument("-r", "--recursive", action="store_true", help="If set, recurses through all directories within any input directories.")
     parser.add_argument("-e", "--extensions", type=str, metavar="ext", help="valid extensions", nargs = "*",
                         default=["fits", "fts", "fit", "fits.Z", "fts.Z", "fit.Z"])
     parser.add_argument("-s", "--skip_astrometry", action="store_true",
