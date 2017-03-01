@@ -56,9 +56,13 @@ def Zeropoint_apass( sources, passband='clear' ):
     # find the radius needed to capture the whole field
     idx, sep2d, dist3d = image_catalog_full.match_to_catalog_sky( SkyCoord(ra=[ra_c], dec=[dec_c]) )
     radius = np.max( sep2d )
+    # some error handling here:
+    if radius.value > 5.0:
+        # somehow we have a huge field query; that's wrong!
+        raise Exception('Apparent field size is {:.1f} degrees!'.format( radius.value))
     radius += 1*units.arcmin # add some slack, just to be safe
     apass_sources = APASS.query(ra_c.value, dec_c.value, radius.value)
-
+    
     # cross match the two catalogs
     apass_catalog_full = SkyCoord(ra=apass_sources['radeg']*units.degree, dec=apass_sources['decdeg']*units.degree)
     id_image, sep2d, dist3d = apass_catalog_full.match_to_catalog_sky( image_catalog_full )

@@ -110,6 +110,23 @@ TELESCOPES = {
         },
         "HEADER_MAPS": {
             "FILTER": "FILTNAM",
+            "DATE": "DATE-OBS",
+            "TIME": "UTMIDDLE",
+            "OBJECT": "OBJECT",
+            # "DATID" : "OBSNUM"
+        },
+    },
+    "nickelOld": {
+        "ASTROMETRY_OPTIONS": {
+            "L": 0.36,  # --scale-low
+            "H": 0.38  # --scale-high
+        },
+        "SEXTRACTOR_OPTIONS": {
+            "c": os.path.join(SEXCONFPATH, 'default.nickel.sex'),
+            "FILTER_NAME": os.path.join(SEXCONFPATH, 'gauss_5.0_9x9.conv')
+        },
+        "HEADER_MAPS": {
+#            "FILTER": "FILTNAM",
             "FILTER": "FILTER",
             "DATE": "DATE-OBS",
             "TIME": "UTMIDDLE",

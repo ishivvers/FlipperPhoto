@@ -107,7 +107,8 @@ class ImageParser(FitsIOMixin, FileLoggerMixin, object):
             H['OBJECT'] = H['OBJECT'].replace('_', '-').replace(' ', '-')
 
             # if a filter map is given, use it to translate the filter
-            if "FILTER_MAP" in settings.TELESCOPES[self.telescope].keys():
+            if ("FILTER_MAP" in settings.TELESCOPES[self.telescope].keys()) and \
+               (H['FILTER'] in settings.TELESCOPES[self.telescope]['FILTER_MAP'].keys()):
                 H['FILTER'] = settings.TELESCOPES[self.telescope]['FILTER_MAP'][ H['FILTER'] ]
             # Try to get original file number if it exists
             if "DATID" not in H:
