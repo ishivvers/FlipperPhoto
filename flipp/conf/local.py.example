@@ -1,0 +1,34 @@
+# -*- coding: utf-8 -*-
+"""Example local settings file"""
+
+# ONLY POSSIBLE IF DECLARED INSIDE OF flipp/conf/
+from .global_settings import *
+
+DB_URL = "mysql://databaseuser:databasepassword@databasehost/flipp_db"
+
+# If you have an old or very new astrometry installation:
+SOLVEFIELDPATH = "/usr/local/astrometry/bin/solve-field"
+
+# If you installed source-extractor very manually:
+SEXTRACTORPATH = "/usr/local/bin/sextractor"
+
+OTHER_TELESCOPES = {
+    "Hubble": {
+        "ASTROMETRY_OPTIONS": {
+            "L": 0.1,  # --scale-low
+            "H": 0.1  # --scale-high
+        },
+        "SEXTRACTOR_OPTIONS": {
+            "c": "/path/to/telescope/source-extractor.sex",
+            "FILTER_NAME": "/path/to/telescope/convolution.conv"
+        }
+        "HEADER_MAPS": {
+            "FILTER": "image_filter",
+            "DATE": "OBS_DATE",
+            "TIME": "ut",
+            "OBJECT": "object",
+            "DATID": "datid",
+        }
+    }
+}
+TELESCOPES.update(OTHER_TELESCOPES)
