@@ -110,11 +110,18 @@ TELESCOPES = {
         },
         "HEADER_MAPS": {
             "FILTER": "FILTNAM",
+            "FILTER": "FILTER",
             "DATE": "DATE-OBS",
             "TIME": "UTMIDDLE",
             "OBJECT": "OBJECT",
             # "DATID" : "OBSNUM"
         },
+        # A Filter Map translates between a header value and a filter name.
+        "FILTER_MAP": {"1893": "B",
+                       "2373": "V",
+                       "2853": "R",
+                       "3333": "I"
+       },
     },
 }
 

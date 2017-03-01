@@ -106,6 +106,9 @@ class ImageParser(FitsIOMixin, FileLoggerMixin, object):
             H['INSTRUMENT'] = self.telescope
             H['OBJECT'] = H['OBJECT'].replace('_', '-').replace(' ', '-')
 
+            # if a filter map is given, use it to translate the filter
+            if "FILTER_MAP" in settings.TELESCOPES[self.telescope].keys():
+                H['FILTER'] = settings.TELESCOPES[self.telescope]['FILTER_MAP'][ H['FILTER'] ]
             # Try to get original file number if it exists
             if "DATID" not in H:
                 obsnum = re.search("d\d{3}", os.path.splitext(
@@ -176,7 +179,7 @@ class ImageParser(FitsIOMixin, FileLoggerMixin, object):
         # because the SE star/galaxy classifications are not trustworthy,
         # extract everything for now
         # return SE.extract_stars(img, *args, **kwargs)
-        return Sextractor(img).extract(*args, **kwargs)
+        return Sextractor(img, self.telescope).extract(*args, **kwargs)
 
     def zeropoint(self, sources):
         threshold = 3
