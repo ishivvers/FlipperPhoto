@@ -219,6 +219,7 @@ class ImageParser(FitsIOMixin, FileLoggerMixin, object):
                 output_file = os.path.join(self.output_dir, self.output_name)
                 with open(output_file, 'w') as f:
                     self.image.writeto(f)
+                    self.output_file = output_file
                 sources = self.extract_stars(self.image)
             self.sources = self.zeropoint(sources)
             os.remove(self.file)
