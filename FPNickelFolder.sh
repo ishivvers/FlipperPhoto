@@ -9,8 +9,15 @@ if [ !  -z  ${1}  ] & [ ! -z ${2} ]; then
   
   for file in `find ${1} -regextype findutils-default -regex ".*/tfn.*\.fi?ts?\(\.Z\)?"`
   do
+    # exclude things we know are flat or bias images from their names
     echo $file
-    flipprun -o ${2} $file
+    if [[ $file =~ bias ||  $file =~ flat ]]
+    then 
+        echo skipping 
+    else
+        echo running 
+        flipprun -o ${2} $file
+    fi
   done
 else
   echo "Usage: ${0} [path/to/input/folder] [path/to/output/folder]"
