@@ -20,6 +20,17 @@ and KAIT telescopes at Lick Observatory.
  - Insert result into a MySQL database for easy querying.
    - This database has been interfaced with the Berkeley [SNDB](http://heracles.astro.berkeley.edu/sndb/) 
 
+## Usage:
+
+ - Once installed, this code provides the ``flipprun`` command, which works well to run one file at a time. For example:
+
+    ``flipprun -o /path/to/output/folder -t kait /path/to/input/file.fits``
+
+ - This repo also includes two example bash scripts, which provide the best way to run on large sets of files.  (The ''recursive'' option in ``flipprun`` fails on large folders.)  For example:
+
+    ``./FPKaitFolder.sh /path/to/input/folder/ /path/to/output/folder/``
+
+
 ## Installation:
 
  1. Clone this repository.
