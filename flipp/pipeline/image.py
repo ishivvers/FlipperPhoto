@@ -147,7 +147,7 @@ class ImageParser(FitsIOMixin, FileLoggerMixin, object):
         if len(sources) <= threshold:
             raise ValidationError(msg.format(threshold))
 
-    def solve_field(self):
+    def solve_field(self, save_review=False):
         """Perform astrometry, write image and extract sources."""
         astrometry = Astrometry(self.image, self.telescope)
         img = astrometry.solve()
@@ -155,7 +155,7 @@ class ImageParser(FitsIOMixin, FileLoggerMixin, object):
         # self.logger.info("Successfully performed astrometry on %(img)s",
         #    {"img" : self.name})
 
-        if not img:
+        if not img and save_review:
             REVIEW_DIR = os.path.join(self.output_root, "REVIEW", '{:%Y%m%d}'.format(self.META['DATETIME']))
             mkdir(REVIEW_DIR)
             output_file = os.path.join(REVIEW_DIR, self.output_name)
